@@ -6,7 +6,7 @@
  */
 
 import { parseColorString, RESET } from "./colors";
-import { strftime, wordWrap } from "./utils";
+import { strftime, wordWrap, stripAnsi } from "./utils";
 import type { Formatter, LogRecord } from "./types";
 
 /** Options shared by all formatters. */
@@ -14,6 +14,16 @@ export interface FormatterOptions {
   datefmt: string;
   logColors: Record<string, string>;
   colored: boolean;
+}
+
+/**
+ * Pad text to a visual width, accounting for ANSI escape codes.
+ * The visible length (excluding ANSI codes) will be padded to the target width.
+ */
+function padVisual(text: string, width: number): string {
+  const visibleLength = stripAnsi(text).length;
+  const padding = Math.max(0, width - visibleLength);
+  return text + " ".repeat(padding);
 }
 
 /**
@@ -108,7 +118,7 @@ export class ShortFixedBoxFormatter implements Formatter {
     const bottom = "\u2514" + "\u2500".repeat(w + 2);
     const boxed = [
       top,
-      ...lines.map((l) => `\u2502 ${l.padEnd(w)} `),
+      ...lines.map((l) => `\u2502 ${padVisual(l, w)} `),
       bottom,
     ];
 
@@ -139,12 +149,12 @@ export class ShortDynamicBoxFormatter implements Formatter {
     const message = formatBase(record, this.opts);
     const lines = message.split("\n");
 
-    const w = lines.reduce((max, l) => Math.max(max, l.length), 0);
+    const w = lines.reduce((max, l) => Math.max(max, stripAnsi(l).length), 0);
     const top = "\u250c" + "\u2500".repeat(w + 2) + "\u2510";
     const bottom = "\u2514" + "\u2500".repeat(w + 2) + "\u2518";
     const boxed = [
       top,
-      ...lines.map((l) => `\u2502 ${l.padEnd(w)} \u2502`),
+      ...lines.map((l) => `\u2502 ${padVisual(l, w)} \u2502`),
       bottom,
     ];
 
