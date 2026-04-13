@@ -1,6 +1,14 @@
 /** Box decoration style for console output. */
 export type Style = "short-fixed" | "short-dynamic" | "long-boxed";
 
+/**
+ * How extra fields are serialized in the log output.
+ * - `"inline"` (default): `[key=value key2=value2]`
+ * - `"json"`: compact single-line JSON — `{"key":"value","key2":"value2"}`
+ * - `"pretty"`: formatted multi-line JSON (best paired with `"long-boxed"` style)
+ */
+export type ExtraFormat = "inline" | "json" | "pretty";
+
 /** Supported log levels, matching Python's logging module hierarchy. */
 export type Level = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
@@ -45,6 +53,12 @@ export interface SetupLoggingOptions {
   fileLevel?: Level | null;
   /** Logger name. `""` for root logger. Default: `""`. */
   name?: string;
+  /**
+   * How `extra` fields are rendered in the log output.
+   * Only applies to no-style (plain/colored) and `"long-boxed"` outputs.
+   * Default: `"inline"`.
+   */
+  extraFormat?: ExtraFormat;
 }
 
 /** Interface that all formatters implement. */
