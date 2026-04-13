@@ -17,12 +17,7 @@
  */
 
 import { Logger } from "./logger";
-import {
-  ColoredLogFormatter,
-  ShortFixedBoxFormatter,
-  ShortDynamicBoxFormatter,
-  LongBoxedFormatter,
-} from "./formatters";
+import { LogFormatter } from "./formatters";
 import type { FormatterOptions } from "./formatters";
 import { ConsoleHandler, CleanFileHandler } from "./handlers";
 import { DEFAULT_LOG_COLORS } from "./colors";
@@ -55,37 +50,23 @@ export function setupLogging(options?: SetupLoggingOptions): Logger {
     file = null,
     fileLevel = null,
     name = "",
+    extraFormat,
   } = options ?? {};
 
   const colors = { ...DEFAULT_LOG_COLORS, ...(userColors ?? {}) };
-  const fmtOpts: FormatterOptions = { datefmt, logColors: colors, colored };
 
-  let formatter: Formatter;
+  const fmtOpts: FormatterOptions = {
+    datefmt,
+    logColors: colors,
+    colored,
+    extraFormat,
+    box: style !== null,
+    fullBorder: style === "short-dynamic",
+    width: style === "short-dynamic" ? "auto" : width,
+    wordWrap: style === "long-boxed",
+  };
 
-  if (colored && style === null) {
-    formatter = new ColoredLogFormatter(fmtOpts);
-  } else if (colored && style === "short-fixed") {
-    formatter = new ShortFixedBoxFormatter(fmtOpts, width);
-  } else if (colored && style === "short-dynamic") {
-    formatter = new ShortDynamicBoxFormatter(fmtOpts);
-  } else if (colored && style === "long-boxed") {
-    formatter = new LongBoxedFormatter(fmtOpts, width);
-  } else if (!colored && style === null) {
-    // Plain formatter, no colors, no box.
-    formatter = new ColoredLogFormatter({ datefmt, logColors: colors, colored: false });
-  } else {
-    // Box style without colors.
-    const noColorOpts: FormatterOptions = { datefmt, logColors: colors, colored: false };
-    if (style === "short-fixed") {
-      formatter = new ShortFixedBoxFormatter(noColorOpts, width);
-    } else if (style === "short-dynamic") {
-      formatter = new ShortDynamicBoxFormatter(noColorOpts);
-    } else if (style === "long-boxed") {
-      formatter = new LongBoxedFormatter(noColorOpts, width);
-    } else {
-      formatter = new ColoredLogFormatter(noColorOpts);
-    }
-  }
+  const formatter: Formatter = new LogFormatter(fmtOpts);
 
   // Console handler
   const consoleHandler = new ConsoleHandler(LEVEL_VALUES[level], formatter);
@@ -146,12 +127,7 @@ export function getLogger(name: string = ""): Logger {
 
 // Re-exports
 export { Logger } from "./logger";
-export {
-  ColoredLogFormatter,
-  ShortFixedBoxFormatter,
-  ShortDynamicBoxFormatter,
-  LongBoxedFormatter,
-} from "./formatters";
+export { LogFormatter } from "./formatters";
 export type { FormatterOptions } from "./formatters";
 export { ConsoleHandler, CleanFileHandler } from "./handlers";
 export { stripAnsi } from "./utils";
@@ -159,6 +135,7 @@ export { DEFAULT_LOG_COLORS } from "./colors";
 export type {
   Style,
   Level,
+  ExtraFormat,
   SetupLoggingOptions,
   LogRecord,
   Formatter,

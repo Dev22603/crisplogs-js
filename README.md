@@ -102,6 +102,7 @@ const logger = setupLogging({
   width: 100,
   datefmt: "%Y-%m-%d %H:%M:%S",
   logColors: { INFO: "bold_green" },
+  extraFormat: "json",
   file: "app.log",
   fileLevel: "WARNING",
   name: "myapp",
@@ -130,7 +131,7 @@ logger.critical(message, extra?)
 logger.log(level, message, extra?) // explicit level
 ```
 
-The `extra` parameter is an optional `Record<string, unknown>` that appears in the log output when using the `"long-boxed"` style as `[key=value ...]`.
+The `extra` parameter is an optional `Record<string, unknown>`. It appears in the log output for the default (no style) and `"long-boxed"` styles. Format is controlled by the `extraFormat` option.
 
 ## Options
 
@@ -242,6 +243,29 @@ const logger = setupLogging({ name: "myapp" });
 logger.info("from myapp"); // shows [myapp] in output
 ```
 
+### `extraFormat` (string, default: `"inline"`)
+
+How `extra` fields are rendered in the log output. Only applies to the default (no style) and `"long-boxed"` outputs.
+
+| Value | Output |
+|-------|--------|
+| `"inline"` | `[userId=42 action=login]` |
+| `"json"` | `{"userId":42,"action":"login"}` |
+| `"pretty"` | Formatted multi-line JSON |
+
+```ts
+setupLogging({ extraFormat: "json" });
+// INFO     2025-09-08 12:30:45 [root] app.ts:10 - User logged in {"userId":42}
+
+setupLogging({ style: "long-boxed", extraFormat: "pretty" });
+// ┌──────────────────────────────────────
+// │ INFO ... - User logged in
+// │ {
+// │   "userId": 42
+// │ }
+// └──────────────────────────────────────
+```
+
 ## Full Example
 
 ```ts
@@ -281,6 +305,7 @@ All types are available for TypeScript users:
 import type {
   Style,           // "short-fixed" | "short-dynamic" | "long-boxed"
   Level,           // "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
+  ExtraFormat,     // "inline" | "json" | "pretty"
   SetupLoggingOptions,
   LogRecord,
   Formatter,
@@ -295,10 +320,7 @@ import type {
 | `setupLogging` | Main entry point - configure logging in one call |
 | `getLogger` | Retrieve a logger by name |
 | `Logger` | Logger class |
-| `ColoredLogFormatter` | Colored text formatter (no box) |
-| `ShortFixedBoxFormatter` | Fixed-width left-border box formatter |
-| `ShortDynamicBoxFormatter` | Dynamic-width full-border box formatter |
-| `LongBoxedFormatter` | Word-wrapped left-border box formatter |
+| `LogFormatter` | Configurable formatter — covers all styles via options |
 | `ConsoleHandler` | Stdout handler |
 | `CleanFileHandler` | File handler with ANSI stripping |
 | `stripAnsi` | Remove ANSI escape sequences from a string |

@@ -8,12 +8,7 @@ import {
 } from "../src";
 import { strftime, wordWrap } from "../src/utils";
 import { parseColorString, RESET } from "../src/colors";
-import {
-  ColoredLogFormatter,
-  ShortFixedBoxFormatter,
-  ShortDynamicBoxFormatter,
-  LongBoxedFormatter,
-} from "../src/formatters";
+import { LogFormatter } from "../src/formatters";
 import type { LogRecord } from "../src";
 import * as fs from "fs";
 import * as path from "path";
@@ -165,13 +160,12 @@ describe("parseColorString", () => {
 // Formatters
 // ---------------------------------------------------------------------------
 
-describe("ColoredLogFormatter", () => {
+describe("LogFormatter", () => {
+  const base = { datefmt: "%Y-%m-%d %H:%M:%S", logColors: { INFO: "green" }, colored: false };
+  const baseTime = { datefmt: "%H:%M:%S", logColors: { INFO: "green" }, colored: false };
+
   it("produces colored output", () => {
-    const fmt = new ColoredLogFormatter({
-      datefmt: "%Y-%m-%d %H:%M:%S",
-      logColors: { INFO: "green" },
-      colored: true,
-    });
+    const fmt = new LogFormatter({ ...base, colored: true });
     const output = fmt.format(makeRecord());
     expect(output).toContain("INFO");
     expect(output).toContain("Test message");
@@ -182,90 +176,80 @@ describe("ColoredLogFormatter", () => {
   });
 
   it("produces plain output when colored=false", () => {
-    const fmt = new ColoredLogFormatter({
-      datefmt: "%Y-%m-%d %H:%M:%S",
-      logColors: { INFO: "green" },
-      colored: false,
-    });
+    const fmt = new LogFormatter(base);
     const output = fmt.format(makeRecord());
     expect(output).not.toContain("\x1b[");
     expect(output).toContain("INFO");
     expect(output).toContain("Test message");
   });
-});
 
-describe("ShortFixedBoxFormatter", () => {
-  it("wraps in a fixed-width box with left border", () => {
-    const fmt = new ShortFixedBoxFormatter(
-      { datefmt: "%H:%M:%S", logColors: { INFO: "green" }, colored: false },
-      80,
-    );
+  it("no-box: appends extra fields inline", () => {
+    const fmt = new LogFormatter(base);
+    const output = fmt.format(makeRecord({ extra: { userId: 42 } }));
+    expect(output).toContain("[userId=42]");
+  });
+
+  it("no-box: appends extra fields as compact JSON", () => {
+    const fmt = new LogFormatter({ ...base, extraFormat: "json" });
+    const output = fmt.format(makeRecord({ extra: { userId: 42 } }));
+    expect(output).toContain('{"userId":42}');
+  });
+
+  it("no-box: appends extra fields as pretty JSON", () => {
+    const fmt = new LogFormatter({ ...base, extraFormat: "pretty" });
+    const output = fmt.format(makeRecord({ extra: { userId: 42 } }));
+    expect(output).toContain('"userId": 42');
+  });
+
+  it("short-fixed: left-border box at fixed width", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, width: 80 });
     const output = fmt.format(makeRecord());
     const lines = output.split("\n");
-
     expect(lines[0]).toMatch(/^┌─+$/);
     expect(lines[1]).toMatch(/^│ /);
     expect(lines[lines.length - 1]).toMatch(/^└─+$/);
   });
-});
 
-describe("ShortDynamicBoxFormatter", () => {
-  it("wraps in a dynamic-width box with full border", () => {
-    const fmt = new ShortDynamicBoxFormatter({
-      datefmt: "%H:%M:%S",
-      logColors: { INFO: "green" },
-      colored: false,
-    });
+  it("short-dynamic: full-border box with auto width", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, fullBorder: true, width: "auto" });
     const output = fmt.format(makeRecord());
     const lines = output.split("\n");
-
     expect(lines[0]).toMatch(/^┌─+┐$/);
     expect(lines[1]).toMatch(/^│ .+ │$/);
     expect(lines[lines.length - 1]).toMatch(/^└─+┘$/);
   });
-});
 
-describe("LongBoxedFormatter", () => {
-  it("wraps in a box with left border", () => {
-    const fmt = new LongBoxedFormatter(
-      { datefmt: "%H:%M:%S", logColors: { INFO: "green" }, colored: false },
-      80,
-    );
+  it("long-boxed: left-border box with word-wrap", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, wordWrap: true, width: 80 });
     const output = fmt.format(makeRecord());
     const lines = output.split("\n");
-
     expect(lines[0]).toMatch(/^┌─+$/);
     expect(lines[1]).toMatch(/^│ /);
     expect(lines[lines.length - 1]).toMatch(/^└─+$/);
   });
 
-  it("appends extra fields", () => {
-    const fmt = new LongBoxedFormatter(
-      { datefmt: "%H:%M:%S", logColors: { INFO: "green" }, colored: false },
-      200,
-    );
+  it("long-boxed: appends extra fields", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, wordWrap: true, width: 200 });
     const record = makeRecord({ extra: { userId: 42, action: "login" } });
     const output = fmt.format(record);
-
     expect(output).toContain("userId=42");
     expect(output).toContain("action=login");
   });
 
-  it("word-wraps long messages", () => {
-    const fmt = new LongBoxedFormatter(
-      { datefmt: "%H:%M:%S", logColors: { INFO: "green" }, colored: false },
-      40,
-    );
+  it("long-boxed: word-wraps long messages", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, wordWrap: true, width: 40 });
     const record = makeRecord({
-      message:
-        "This is a very long message that should definitely be wrapped across multiple lines",
+      message: "This is a very long message that should definitely be wrapped across multiple lines",
     });
     const output = fmt.format(record);
-    const contentLines = output
-      .split("\n")
-      .filter((l) => l.startsWith("│"));
-
+    const contentLines = output.split("\n").filter((l) => l.startsWith("│"));
     expect(contentLines.length).toBeGreaterThan(1);
+  });
+
+  it("short-fixed: ignores extra fields", () => {
+    const fmt = new LogFormatter({ ...baseTime, box: true, width: 80 });
+    const output = fmt.format(makeRecord({ extra: { userId: 42 } }));
+    expect(output).not.toContain("userId=42");
   });
 });
 
@@ -274,7 +258,7 @@ describe("LongBoxedFormatter", () => {
 // ---------------------------------------------------------------------------
 
 describe("Logger", () => {
-  let writeSpy: ReturnType<typeof vi.spyOn>;
+  let writeSpy: any;
 
   beforeEach(() => {
     writeSpy = vi
@@ -401,7 +385,7 @@ describe("Logger", () => {
 // ---------------------------------------------------------------------------
 
 describe("getLogger", () => {
-  let writeSpy: ReturnType<typeof vi.spyOn>;
+  let writeSpy: any;
 
   beforeEach(() => {
     writeSpy = vi
