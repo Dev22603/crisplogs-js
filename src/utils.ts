@@ -53,6 +53,9 @@ function getDayOfYear(date: Date): number {
 /**
  * Word-wrap text at word boundaries, matching Python's
  * `textwrap.wrap(text, width, break_long_words=False, break_on_hyphens=False)`.
+ *
+ * ANSI escape sequences are excluded from width calculations so colored text
+ * wraps at the correct visible column.
  */
 export function wordWrap(text: string, width: number): string[] {
   if (!text) return [""];
@@ -64,7 +67,9 @@ export function wordWrap(text: string, width: number): string[] {
   let currentLine = words[0];
 
   for (let i = 1; i < words.length; i++) {
-    if (currentLine.length + 1 + words[i].length <= width) {
+    const visCurrentLen = stripAnsi(currentLine).length;
+    const visWordLen = stripAnsi(words[i]).length;
+    if (visCurrentLen + 1 + visWordLen <= width) {
       currentLine += " " + words[i];
     } else {
       lines.push(currentLine);
