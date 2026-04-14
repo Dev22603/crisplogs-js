@@ -14,11 +14,17 @@ export class Logger {
   readonly name: string;
   private _level: number;
   private _handlers: Handler[];
+  private _captureCallerInfo: boolean;
 
-  constructor(name: string, level: number = LEVEL_VALUES.DEBUG) {
+  constructor(
+    name: string,
+    level: number = LEVEL_VALUES.DEBUG,
+    captureCallerInfo: boolean = true,
+  ) {
     this.name = name;
     this._level = level;
     this._handlers = [];
+    this._captureCallerInfo = captureCallerInfo;
   }
 
   get level(): number {
@@ -34,23 +40,47 @@ export class Logger {
   }
 
   addHandler(handler: Handler): void {
-    this._handlers.push(handler);
+    if (!this._handlers.includes(handler)) {
+      this._handlers.push(handler);
+    }
+  }
+
+  removeHandler(handler: Handler): boolean {
+    const idx = this._handlers.indexOf(handler);
+    if (idx !== -1) {
+      this._handlers.splice(idx, 1);
+      return true;
+    }
+    return false;
   }
 
   clearHandlers(): void {
+    for (const handler of this._handlers) {
+      try {
+        handler.close();
+      } catch {
+        // Swallow close errors — cleanup must not throw.
+      }
+    }
     this._handlers = [];
+  }
+
+  isEnabledFor(level: Level): boolean {
+    return LEVEL_VALUES[level] >= this._level;
   }
 
   private _log(
     levelName: Level,
     message: string,
     extra: Record<string, unknown> | undefined,
-    callerFn?: Function,
+    callerFn?: ((...args: any[]) => any),
   ): void {
     const levelNo = LEVEL_VALUES[levelName];
     if (levelNo < this._level) return;
 
-    const { pathname, lineno } = getCallerInfo(callerFn);
+    const { pathname, lineno } = this._captureCallerInfo
+      ? getCallerInfo(callerFn)
+      : { pathname: "<anonymous>", lineno: 0 };
 
     const record: LogRecord = {
       levelName,
@@ -65,7 +95,17 @@ export class Logger {
 
     for (const handler of this._handlers) {
       if (levelNo >= handler.level) {
-        handler.emit(record);
+        try {
+          handler.emit(record);
+        } catch (err) {
+          try {
+            process.stderr.write(
+              `crisplogs: handler emit failed: ${err instanceof Error ? err.message : err}\n`,
+            );
+          } catch {
+            // Last resort: stderr itself failed, silently swallow.
+          }
+        }
       }
     }
   }

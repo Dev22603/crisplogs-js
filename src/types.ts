@@ -54,6 +54,11 @@ export interface SetupLoggingOptions {
   /** Logger name. `""` for root logger. Default: `""`. */
   name?: string;
   /**
+   * Capture file path and line number of the caller on each log call.
+   * Disable for higher throughput in production. Default: `true`.
+   */
+  captureCallerInfo?: boolean;
+  /**
    * How `extra` fields are rendered in the log output.
    * Only applies to no-style (plain/colored) and `"long-boxed"` outputs.
    * Default: `"inline"`.
@@ -68,7 +73,9 @@ export interface Formatter {
 
 /** Interface that all handlers implement. */
 export interface Handler {
-  level: number;
+  readonly level: number;
   formatter: Formatter;
   emit(record: LogRecord): void;
+  /** Release any resources held by this handler (e.g. file streams). */
+  close(): void;
 }

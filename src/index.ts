@@ -24,7 +24,8 @@ import { DEFAULT_LOG_COLORS } from "./colors";
 import type { SetupLoggingOptions, Formatter } from "./types";
 import { LEVEL_VALUES } from "./types";
 
-export const VERSION = "0.1.0";
+declare const __VERSION__: string;
+export const VERSION: string = typeof __VERSION__ !== "undefined" ? __VERSION__ : "0.0.0-dev";
 
 const DEFAULT_DATEFMT = "%Y-%m-%d %H:%M:%S";
 
@@ -51,7 +52,22 @@ export function setupLogging(options?: SetupLoggingOptions): Logger {
     fileLevel = null,
     name = "",
     extraFormat,
+    captureCallerInfo = true,
   } = options ?? {};
+
+  // Runtime validation for JS consumers (TypeScript catches these at compile time).
+  if (!(level in LEVEL_VALUES)) {
+    throw new TypeError(`Invalid log level: "${level}". Expected one of: ${Object.keys(LEVEL_VALUES).join(", ")}`);
+  }
+  if (fileLevel !== null && !(fileLevel in LEVEL_VALUES)) {
+    throw new TypeError(`Invalid fileLevel: "${fileLevel}". Expected one of: ${Object.keys(LEVEL_VALUES).join(", ")}`);
+  }
+  if (typeof width !== "number" || width <= 0 || !Number.isFinite(width)) {
+    throw new TypeError(`Invalid width: ${width}. Must be a positive finite number.`);
+  }
+  if (file !== null && (typeof file !== "string" || file.length === 0)) {
+    throw new TypeError(`Invalid file path: must be a non-empty string.`);
+  }
 
   const colors = { ...DEFAULT_LOG_COLORS, ...(userColors ?? {}) };
 
@@ -76,7 +92,7 @@ export function setupLogging(options?: SetupLoggingOptions): Logger {
     loggers.get(name)!.clearHandlers();
   }
 
-  const logger = new Logger(name, LEVEL_VALUES.DEBUG);
+  const logger = new Logger(name, LEVEL_VALUES.DEBUG, captureCallerInfo);
   logger.addHandler(consoleHandler);
 
   // File handler (optional)
@@ -92,6 +108,31 @@ export function setupLogging(options?: SetupLoggingOptions): Logger {
 
   loggers.set(name, logger);
   return logger;
+}
+
+/**
+ * Tear down all loggers, closing their handlers and clearing the registry.
+ * Useful in tests or when reconfiguring logging at runtime.
+ */
+export function resetLogging(): void {
+  for (const logger of loggers.values()) {
+    logger.clearHandlers();
+  }
+  loggers.clear();
+}
+
+/**
+ * Remove a single logger from the registry by name.
+ * Returns `true` if the logger existed and was removed.
+ */
+export function removeLogger(name: string): boolean {
+  const logger = loggers.get(name);
+  if (logger) {
+    logger.clearHandlers();
+    loggers.delete(name);
+    return true;
+  }
+  return false;
 }
 
 /**

@@ -2,8 +2,9 @@
  * Internal utilities for crisplogs.
  */
 
-/** Regex matching ANSI escape sequences (colors, cursor moves, etc.). */
-const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
+/** Regex matching ANSI escape sequences (SGR, CSI, OSC, etc.). */
+const ANSI_ESCAPE =
+  /[\x1b\x9b][\[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]|\x1b\].*?(?:\x1b\\|\x07)/g;
 
 /**
  * Remove all ANSI escape sequences from a string.
@@ -24,25 +25,26 @@ export function stripAnsi(text: string): string {
 export function strftime(format: string, date: Date): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
 
-  const tokens: Record<string, string> = {
-    "%Y": String(date.getFullYear()),
-    "%m": pad(date.getMonth() + 1),
-    "%d": pad(date.getDate()),
-    "%H": pad(date.getHours()),
-    "%M": pad(date.getMinutes()),
-    "%S": pad(date.getSeconds()),
-    "%I": pad(date.getHours() % 12 || 12),
-    "%p": date.getHours() < 12 ? "AM" : "PM",
-    "%f": pad(date.getMilliseconds() * 1000, 6),
-    "%j": pad(getDayOfYear(date), 3),
-    "%a": date.toLocaleDateString("en-US", { weekday: "short" }),
-    "%A": date.toLocaleDateString("en-US", { weekday: "long" }),
-    "%b": date.toLocaleDateString("en-US", { month: "short" }),
-    "%B": date.toLocaleDateString("en-US", { month: "long" }),
-    "%%": "%",
-  };
-
-  return format.replace(/%[YmdHMSIpfjaAbB%]/g, (m) => tokens[m] ?? m);
+  return format.replace(/%[YmdHMSIpfjaAbB%]/g, (token) => {
+    switch (token) {
+      case "%Y": return String(date.getFullYear());
+      case "%m": return pad(date.getMonth() + 1);
+      case "%d": return pad(date.getDate());
+      case "%H": return pad(date.getHours());
+      case "%M": return pad(date.getMinutes());
+      case "%S": return pad(date.getSeconds());
+      case "%I": return pad(date.getHours() % 12 || 12);
+      case "%p": return date.getHours() < 12 ? "AM" : "PM";
+      case "%f": return pad(date.getMilliseconds() * 1000, 6);
+      case "%j": return pad(getDayOfYear(date), 3);
+      case "%a": return date.toLocaleDateString("en-US", { weekday: "short" });
+      case "%A": return date.toLocaleDateString("en-US", { weekday: "long" });
+      case "%b": return date.toLocaleDateString("en-US", { month: "short" });
+      case "%B": return date.toLocaleDateString("en-US", { month: "long" });
+      case "%%": return "%";
+      default: return token;
+    }
+  });
 }
 
 function getDayOfYear(date: Date): number {
@@ -89,7 +91,7 @@ export function wordWrap(text: string, width: number): string[] {
  *
  * @param belowFn - The public method to skip past in the stack (e.g. `logger.info`).
  */
-export function getCallerInfo(belowFn?: Function): {
+export function getCallerInfo(belowFn?: (...args: any[]) => any): {
   pathname: string;
   lineno: number;
 } {

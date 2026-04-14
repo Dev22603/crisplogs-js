@@ -79,8 +79,10 @@ export function parseColorString(colorStr: string): string {
   return codes.length > 0 ? `\x1b[${codes.join(";")}m` : "";
 }
 
+import type { Level } from "./types";
+
 /** Default color scheme applied to each log level. */
-export const DEFAULT_LOG_COLORS: Record<string, string> = {
+export const DEFAULT_LOG_COLORS: Record<Level, string> = {
   DEBUG: "cyan",
   INFO: "green",
   WARNING: "yellow",

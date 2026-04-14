@@ -11,7 +11,7 @@ import type { ExtraFormat, Formatter, LogRecord } from "./types";
 /** Options accepted by {@link LogFormatter}. */
 export interface FormatterOptions {
   datefmt: string;
-  logColors: Record<string, string>;
+  logColors: Record<string, string>; // string keys to allow custom level extensions
   colored: boolean;
   /** How extra fields are rendered. Only applies when `box` is false or `wordWrap` is true. */
   extraFormat?: ExtraFormat;
@@ -42,6 +42,17 @@ function padVisual(text: string, width: number): string {
 }
 
 /**
+ * Safely stringify an object, handling circular references.
+ */
+function safeStringify(obj: unknown, indent?: number): string {
+  try {
+    return JSON.stringify(obj, null, indent);
+  } catch {
+    return "[Circular]";
+  }
+}
+
+/**
  * Serialize extra fields according to the chosen format.
  * Returns an empty string when there are no extra fields.
  */
@@ -52,18 +63,22 @@ function serializeExtra(
   if (!extra || Object.keys(extra).length === 0) return "";
 
   if (format === "json") {
-    return " " + JSON.stringify(extra);
+    return " " + safeStringify(extra);
   }
 
   if (format === "pretty") {
-    return "\n" + JSON.stringify(extra, null, 2);
+    return "\n" + safeStringify(extra, 2);
   }
 
   // inline: [key=value key2=value2]
   return (
     " [" +
     Object.entries(extra)
-      .map(([k, v]) => `${k}=${v}`)
+      .map(([k, v]) => {
+        if (v === null || v === undefined) return `${k}=${v}`;
+        if (typeof v === "object") return `${k}=${safeStringify(v)}`;
+        return `${k}=${v}`;
+      })
       .join(" ") +
     "]"
   );

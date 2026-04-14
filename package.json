@@ -32,10 +32,10 @@
     "console"
   ],
   "license": "MIT",
-  "author": "",
+  "author": "Dev Bachani",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/crisplogs"
+    "url": "https://github.com/dev22603/crisplogs-js"
   },
   "engines": {
     "node": ">=16.0.0"

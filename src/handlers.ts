@@ -12,7 +12,7 @@ import type { Handler, Formatter, LogRecord } from "./types";
  * Console handler that writes formatted log records to stdout.
  */
 export class ConsoleHandler implements Handler {
-  level: number;
+  readonly level: number;
   formatter: Formatter;
 
   constructor(level: number, formatter: Formatter) {
@@ -23,6 +23,10 @@ export class ConsoleHandler implements Handler {
   emit(record: LogRecord): void {
     const output = this.formatter.format(record);
     process.stdout.write(output + "\n");
+  }
+
+  close(): void {
+    // No-op for console output.
   }
 }
 
@@ -39,19 +43,32 @@ export class ConsoleHandler implements Handler {
  * ```
  */
 export class CleanFileHandler implements Handler {
-  level: number;
+  readonly level: number;
   formatter: Formatter;
-  private filename: string;
+  private stream: fs.WriteStream;
 
   constructor(filename: string, level: number, formatter: Formatter) {
     this.level = level;
     this.formatter = formatter;
-    this.filename = filename;
+    this.stream = fs.createWriteStream(filename, { flags: "a" });
+    this.stream.on("error", (err) => {
+      try {
+        process.stderr.write(
+          `crisplogs: file write failed (${filename}): ${err.message}\n`,
+        );
+      } catch {
+        // stderr itself failed, silently swallow.
+      }
+    });
   }
 
   emit(record: LogRecord): void {
     const output = this.formatter.format(record);
     const clean = stripAnsi(output);
-    fs.appendFileSync(this.filename, clean + "\n", "utf-8");
+    this.stream.write(clean + "\n");
+  }
+
+  close(): void {
+    this.stream.end();
   }
 }
