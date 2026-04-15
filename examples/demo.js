@@ -1,4 +1,4 @@
-const { setupLogging, getLogger } = require("./dist");
+const { setupLogging, getLogger } = require("../dist");
 
 console.log("=== 1. Colored (default) ===\n");
 const log1 = setupLogging({ name: "demo" });
