@@ -37,7 +37,7 @@
   "author": "Dev Bachani",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev22603/crisplogs-js"
+    "url": "https://github.com/dev22603/crisplogs"
   },
   "engines": {
     "node": ">=16.0.0"

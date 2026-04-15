@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/crisplogs"><img src="https://img.shields.io/npm/v/crisplogs.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/crisplogs"><img src="https://img.shields.io/npm/dm/crisplogs.svg" alt="npm downloads"></a>
-  <a href="https://github.com/dev22603/crisplogs-js/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/crisplogs.svg" alt="license"></a>
+  <a href="https://github.com/dev22603/crisplogs/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/crisplogs.svg" alt="license"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D16-brightgreen.svg" alt="node version">
   <img src="https://img.shields.io/badge/types-included-blue.svg" alt="TypeScript">
   <img src="https://img.shields.io/badge/dependencies-0-green.svg" alt="zero dependencies">
