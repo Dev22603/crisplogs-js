@@ -1,6 +1,6 @@
 {
   "name": "crisplogs",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Beautiful, colored, and boxed logging for Node.js.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.39",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^3.0.0"
