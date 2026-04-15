@@ -1,6 +1,6 @@
 {
   "name": "crisplogs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Beautiful, colored, and boxed logging for Node.js.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -37,7 +37,7 @@
   "author": "Dev Bachani",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev22603/crisplogs"
+    "url": "git+https://github.com/dev22603/crisplogs.git"
   },
   "engines": {
     "node": ">=16.0.0"
