@@ -93,4 +93,37 @@ describe("LogFormatter", () => {
     const output = fmt.format(makeRecord({ extra: { userId: 42 } }));
     expect(output).not.toContain("userId=42");
   });
+
+  // --- Edge-case: circular references ---
+
+  it("handles circular reference in extra (json format)", () => {
+    const fmt = new LogFormatter({ ...base, extraFormat: "json" });
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const output = fmt.format(makeRecord({ extra: circular }));
+    expect(output).toContain("[Circular]");
+  });
+
+  it("handles circular reference in extra (pretty format)", () => {
+    const fmt = new LogFormatter({ ...base, extraFormat: "pretty" });
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const output = fmt.format(makeRecord({ extra: circular }));
+    expect(output).toContain("[Circular]");
+  });
+
+  it("handles circular reference in extra (inline format)", () => {
+    const fmt = new LogFormatter(base);
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const output = fmt.format(makeRecord({ extra: circular }));
+    expect(output).toContain("[Circular]");
+  });
+
+  it("serializes nested objects in inline extra", () => {
+    const fmt = new LogFormatter(base);
+    const output = fmt.format(makeRecord({ extra: { config: { port: 3000 } } }));
+    expect(output).toContain('config={"port":3000}');
+    expect(output).not.toContain("[object Object]");
+  });
 });

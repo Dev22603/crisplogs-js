@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { setupLogging } from "../src";
+import { setupLogging, Logger } from "../src";
+import type { Handler } from "../src";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -80,5 +81,60 @@ describe("CleanFileHandler", () => {
 
     writeSpy.mockRestore();
     fs.unlinkSync(logFile);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Handler edge-cases
+// ---------------------------------------------------------------------------
+
+describe("Handler edge-cases", () => {
+  it("file handler write error doesn't crash", async () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    // Non-existent deep path triggers a stream 'error' event
+    const logger = setupLogging({
+      file: path.join(os.tmpdir(), "nonexistent-deep", "nested", "file.log"),
+      name: "bad-file",
+    });
+    logger.info("this should not crash");
+
+    // Wait for the async stream error event to fire
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(stderrSpy).toHaveBeenCalled();
+    const output = stderrSpy.mock.calls.map((c) => c[0]).join("");
+    expect(output).toContain("file write failed");
+
+    stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+  });
+
+  it("close() is called on clearHandlers()", () => {
+    const logger = new Logger("close-test");
+    const closeSpy = vi.fn();
+    const handler: Handler = {
+      level: 0,
+      formatter: { format: () => "" },
+      emit: () => {},
+      close: closeSpy,
+    };
+    logger.addHandler(handler);
+    logger.clearHandlers();
+    expect(closeSpy).toHaveBeenCalledOnce();
+  });
+
+  it("close() error is swallowed by clearHandlers()", () => {
+    const logger = new Logger("close-err");
+    const handler: Handler = {
+      level: 0,
+      formatter: { format: () => "" },
+      emit: () => {},
+      close: () => { throw new Error("close failed"); },
+    };
+    logger.addHandler(handler);
+    expect(() => logger.clearHandlers()).not.toThrow();
+    expect(logger.handlers.length).toBe(0);
   });
 });

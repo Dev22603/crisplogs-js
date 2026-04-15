@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { stripAnsi } from "../src";
-import { strftime, wordWrap } from "../src/utils";
+import { strftime, wordWrap, getCallerInfo } from "../src/utils";
 
 // ---------------------------------------------------------------------------
 // stripAnsi
@@ -23,6 +23,18 @@ describe("stripAnsi", () => {
 
   it("handles empty string", () => {
     expect(stripAnsi("")).toBe("");
+  });
+
+  it("handles CSI cursor sequences", () => {
+    expect(stripAnsi("\x1b[2J")).toBe("");
+    expect(stripAnsi("\x1b[H")).toBe("");
+    expect(stripAnsi("before\x1b[2Jafter")).toBe("beforeafter");
+  });
+
+  it("handles OSC sequences", () => {
+    expect(
+      stripAnsi("\x1b]8;;http://example.com\x07text\x1b]8;;\x07"),
+    ).toBe("text");
   });
 });
 
@@ -84,5 +96,28 @@ describe("wordWrap", () => {
     const longWord = "superlongwordthatexceedswidth";
     const result = wordWrap(longWord, 10);
     expect(result).toEqual([longWord]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getCallerInfo
+// ---------------------------------------------------------------------------
+
+describe("getCallerInfo", () => {
+  it("returns anonymous when Error.captureStackTrace is unavailable", () => {
+    const original = Error.captureStackTrace;
+    try {
+      // @ts-expect-error — temporarily removing captureStackTrace to simulate non-V8
+      Error.captureStackTrace = undefined;
+      const result = getCallerInfo(() => {});
+      expect(result).toEqual({ pathname: "<anonymous>", lineno: 0 });
+    } finally {
+      Error.captureStackTrace = original;
+    }
+  });
+
+  it("returns anonymous when called without belowFn", () => {
+    const result = getCallerInfo();
+    expect(result).toEqual({ pathname: "<anonymous>", lineno: 0 });
   });
 });
