@@ -6,6 +6,9 @@
  * comma-separated combinations like `"bold_red,bg_white"`.
  */
 
+import { InvalidColorError } from "./errors";
+import type { Level } from "./types";
+
 const FG_COLORS: Record<string, number> = {
 	black: 30,
 	red: 31,
@@ -44,6 +47,13 @@ export const RESET = "\x1b[0m";
 /**
  * Parse a colorlog-compatible color string into an ANSI escape sequence.
  *
+ * Throws {@link InvalidColorError} on unrecognized tokens. Prior to 0.3.0
+ * this function silently dropped invalid tokens and produced uncolored
+ * output, which masked typos like `"GREEN"` or `"brigt_red"`.
+ *
+ * @throws {InvalidColorError} if any token in `colorStr` is not a known
+ *   color, modifier, or background color.
+ *
  * @example
  * parseColorString("red")              // "\x1b[31m"
  * parseColorString("bold_red")         // "\x1b[1;31m"
@@ -55,31 +65,55 @@ export function parseColorString(colorStr: string): string {
 
 	for (const part of parts) {
 		const trimmed = part.trim().toLowerCase();
+		if (trimmed === "") continue;
 
-		if (trimmed === "reset") {
-			return RESET;
-		}
+		if (trimmed === "reset") return RESET;
 
 		if (trimmed.startsWith("bg_")) {
 			const color = trimmed.slice(3);
-			if (color in BG_COLORS) codes.push(BG_COLORS[color]);
-		} else if (trimmed.includes("_")) {
+			if (!(color in BG_COLORS)) {
+				throw new InvalidColorError(
+					`unknown background color "${color}" in ${JSON.stringify(colorStr)}; valid: ${Object.keys(BG_COLORS).join(", ")}`,
+				);
+			}
+			codes.push(BG_COLORS[color]);
+			continue;
+		}
+
+		if (trimmed.includes("_")) {
 			const idx = trimmed.indexOf("_");
 			const modifier = trimmed.slice(0, idx);
 			const color = trimmed.slice(idx + 1);
-			if (modifier in MODIFIERS) codes.push(MODIFIERS[modifier]);
-			if (color in FG_COLORS) codes.push(FG_COLORS[color]);
-		} else if (trimmed in MODIFIERS) {
-			codes.push(MODIFIERS[trimmed]);
-		} else if (trimmed in FG_COLORS) {
-			codes.push(FG_COLORS[trimmed]);
+			if (!(modifier in MODIFIERS)) {
+				throw new InvalidColorError(
+					`unknown modifier "${modifier}" in ${JSON.stringify(colorStr)}; valid: ${Object.keys(MODIFIERS).join(", ")}`,
+				);
+			}
+			if (!(color in FG_COLORS)) {
+				throw new InvalidColorError(
+					`unknown color "${color}" in ${JSON.stringify(colorStr)}; valid: ${Object.keys(FG_COLORS).join(", ")}`,
+				);
+			}
+			codes.push(MODIFIERS[modifier], FG_COLORS[color]);
+			continue;
 		}
+
+		if (trimmed in MODIFIERS) {
+			codes.push(MODIFIERS[trimmed]);
+			continue;
+		}
+		if (trimmed in FG_COLORS) {
+			codes.push(FG_COLORS[trimmed]);
+			continue;
+		}
+
+		throw new InvalidColorError(
+			`unrecognized color token "${trimmed}" in ${JSON.stringify(colorStr)}`,
+		);
 	}
 
 	return codes.length > 0 ? `\x1b[${codes.join(";")}m` : "";
 }
-
-import type { Level } from "./types";
 
 /** Default color scheme applied to each log level. */
 export const DEFAULT_LOG_COLORS: Record<Level, string> = {

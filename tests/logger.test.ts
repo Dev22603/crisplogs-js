@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Handler } from "../src";
 import {
+	CrisplogsError,
 	getLogger,
+	InvalidExtraFormatError,
+	InvalidFilePathError,
+	InvalidLevelError,
+	InvalidStyleError,
+	InvalidWidthError,
 	LEVEL_VALUES,
 	Logger,
 	removeLogger,
@@ -341,32 +347,53 @@ describe("setupLogging validation", () => {
 		writeSpy.mockRestore();
 	});
 
-	it("throws on invalid level", () => {
+	it("throws InvalidLevelError on invalid level", () => {
 		expect(() => setupLogging({ level: "WARN" as any })).toThrow(
-			/Invalid log level/,
+			InvalidLevelError,
 		);
 	});
 
-	it("throws on invalid fileLevel", () => {
+	it("throws InvalidLevelError on invalid fileLevel", () => {
 		expect(() => setupLogging({ fileLevel: "BAD" as any })).toThrow(
-			/Invalid fileLevel/,
+			InvalidLevelError,
 		);
 	});
 
-	it("throws on zero width", () => {
-		expect(() => setupLogging({ width: 0 })).toThrow(/Invalid width/);
+	it("throws InvalidWidthError on zero width", () => {
+		expect(() => setupLogging({ width: 0 })).toThrow(InvalidWidthError);
 	});
 
-	it("throws on negative width", () => {
-		expect(() => setupLogging({ width: -10 })).toThrow(/Invalid width/);
+	it("throws InvalidWidthError on negative width", () => {
+		expect(() => setupLogging({ width: -10 })).toThrow(InvalidWidthError);
 	});
 
-	it("throws on NaN width", () => {
-		expect(() => setupLogging({ width: NaN })).toThrow(/Invalid width/);
+	it("throws InvalidWidthError on NaN width", () => {
+		expect(() => setupLogging({ width: NaN })).toThrow(InvalidWidthError);
 	});
 
-	it("throws on empty file string", () => {
-		expect(() => setupLogging({ file: "" })).toThrow(/Invalid file path/);
+	it("throws InvalidFilePathError on empty file string", () => {
+		expect(() => setupLogging({ file: "" })).toThrow(InvalidFilePathError);
+	});
+
+	it("throws InvalidStyleError on invalid style", () => {
+		expect(() => setupLogging({ style: "wide" as any })).toThrow(
+			InvalidStyleError,
+		);
+	});
+
+	it("throws InvalidExtraFormatError on invalid extraFormat", () => {
+		expect(() => setupLogging({ extraFormat: "yaml" as any })).toThrow(
+			InvalidExtraFormatError,
+		);
+	});
+
+	it("all errors extend CrisplogsError", () => {
+		try {
+			setupLogging({ level: "BAD" as any });
+		} catch (e) {
+			expect(e).toBeInstanceOf(CrisplogsError);
+			expect(e).toBeInstanceOf(Error);
+		}
 	});
 
 	it("accepts valid options without throwing", () => {

@@ -17,11 +17,23 @@
  */
 
 import { DEFAULT_LOG_COLORS } from "./colors";
+import {
+	InvalidExtraFormatError,
+	InvalidFilePathError,
+	InvalidLevelError,
+	InvalidStyleError,
+	InvalidWidthError,
+} from "./errors";
 import type { FormatterOptions } from "./formatters";
 import { LogFormatter } from "./formatters";
 import { CleanFileHandler, ConsoleHandler } from "./handlers";
 import { Logger } from "./logger";
-import type { Formatter, SetupLoggingOptions } from "./types";
+import type {
+	ExtraFormat,
+	Formatter,
+	SetupLoggingOptions,
+	Style,
+} from "./types";
 import { LEVEL_VALUES } from "./types";
 
 declare const __VERSION__: string;
@@ -29,6 +41,13 @@ export const VERSION: string =
 	typeof __VERSION__ !== "undefined" ? __VERSION__ : "0.0.0-dev";
 
 const DEFAULT_DATEFMT = "%Y-%m-%d %H:%M:%S";
+
+const VALID_STYLES = new Set<Style>([
+	"short-fixed",
+	"short-dynamic",
+	"long-boxed",
+]);
+const VALID_EXTRA_FORMATS = new Set<ExtraFormat>(["inline", "json", "pretty"]);
 
 /** Global logger registry, keyed by name. */
 const loggers = new Map<string, Logger>();
@@ -40,6 +59,17 @@ const loggers = new Map<string, Logger>();
  * startup to configure the root (or named) logger.
  *
  * @returns The configured {@link Logger} instance.
+ *
+ * @throws {InvalidLevelError} if `level` or `fileLevel` is not one of the
+ *   supported levels (`"DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"`).
+ * @throws {InvalidStyleError} if `style` is not one of `"short-fixed"`,
+ *   `"short-dynamic"`, `"long-boxed"`, or `null`.
+ * @throws {InvalidWidthError} if `width` is not a positive finite number.
+ * @throws {InvalidExtraFormatError} if `extraFormat` is not one of
+ *   `"inline" | "json" | "pretty"`.
+ * @throws {InvalidFilePathError} if `file` is provided but is not a non-empty string.
+ * @throws {InvalidColorError} if any value in `logColors` contains an
+ *   unrecognized color token.
  */
 export function setupLogging(options?: SetupLoggingOptions): Logger {
 	const {
@@ -58,22 +88,35 @@ export function setupLogging(options?: SetupLoggingOptions): Logger {
 
 	// Runtime validation for JS consumers (TypeScript catches these at compile time).
 	if (!(level in LEVEL_VALUES)) {
-		throw new TypeError(
-			`Invalid log level: "${level}". Expected one of: ${Object.keys(LEVEL_VALUES).join(", ")}`,
+		throw new InvalidLevelError(
+			`level must be one of ${Object.keys(LEVEL_VALUES).join(", ")}; got ${JSON.stringify(level)}`,
 		);
 	}
 	if (fileLevel !== null && !(fileLevel in LEVEL_VALUES)) {
-		throw new TypeError(
-			`Invalid fileLevel: "${fileLevel}". Expected one of: ${Object.keys(LEVEL_VALUES).join(", ")}`,
+		throw new InvalidLevelError(
+			`fileLevel must be one of ${Object.keys(LEVEL_VALUES).join(", ")} or null; got ${JSON.stringify(fileLevel)}`,
+		);
+	}
+	if (style !== null && !VALID_STYLES.has(style as Style)) {
+		throw new InvalidStyleError(
+			`style must be one of "short-fixed", "short-dynamic", "long-boxed", or null; got ${JSON.stringify(style)}`,
+		);
+	}
+	if (
+		extraFormat !== undefined &&
+		!VALID_EXTRA_FORMATS.has(extraFormat as ExtraFormat)
+	) {
+		throw new InvalidExtraFormatError(
+			`extraFormat must be one of "inline", "json", "pretty"; got ${JSON.stringify(extraFormat)}`,
 		);
 	}
 	if (typeof width !== "number" || width <= 0 || !Number.isFinite(width)) {
-		throw new TypeError(
-			`Invalid width: ${width}. Must be a positive finite number.`,
+		throw new InvalidWidthError(
+			`width must be a positive finite number; got ${width}`,
 		);
 	}
 	if (file !== null && (typeof file !== "string" || file.length === 0)) {
-		throw new TypeError(`Invalid file path: must be a non-empty string.`);
+		throw new InvalidFilePathError(`file must be a non-empty string or null`);
 	}
 
 	const colors = { ...DEFAULT_LOG_COLORS, ...(userColors ?? {}) };
@@ -174,6 +217,15 @@ export function getLogger(name: string = ""): Logger {
 }
 
 export { DEFAULT_LOG_COLORS } from "./colors";
+export {
+	CrisplogsError,
+	InvalidColorError,
+	InvalidExtraFormatError,
+	InvalidFilePathError,
+	InvalidLevelError,
+	InvalidStyleError,
+	InvalidWidthError,
+} from "./errors";
 export type { FormatterOptions } from "./formatters";
 export { LogFormatter } from "./formatters";
 export { CleanFileHandler, ConsoleHandler } from "./handlers";

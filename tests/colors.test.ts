@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseColorString, RESET } from "../src/colors";
+import { InvalidColorError } from "../src/errors";
 
 describe("parseColorString", () => {
 	it("parses basic colors", () => {
@@ -32,7 +33,26 @@ describe("parseColorString", () => {
 		expect(parseColorString("reset")).toBe(RESET);
 	});
 
-	it("returns empty for unknown", () => {
-		expect(parseColorString("nonexistent")).toBe("");
+	it("throws InvalidColorError for unknown bare token", () => {
+		expect(() => parseColorString("nonexistent")).toThrow(InvalidColorError);
+	});
+
+	it("throws InvalidColorError for unknown background", () => {
+		expect(() => parseColorString("bg_purpler")).toThrow(InvalidColorError);
+	});
+
+	it("throws InvalidColorError for unknown modifier", () => {
+		expect(() => parseColorString("brigt_red")).toThrow(InvalidColorError);
+	});
+
+	it("throws InvalidColorError for unknown color in modifier_color", () => {
+		expect(() => parseColorString("bold_chartreuse")).toThrow(
+			InvalidColorError,
+		);
+	});
+
+	it("throws InvalidColorError for uppercase bare color", () => {
+		expect(() => parseColorString("RED")).not.toThrow();
+		// Uppercase is normalised via toLowerCase, so RED is valid.
 	});
 });

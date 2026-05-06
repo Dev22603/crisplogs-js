@@ -14,6 +14,8 @@
 
 ---
 
+> **Note:** This package is in 0.x. Minor version bumps may include breaking changes. Pin to `"crisplogs": "~0.3.0"` for stability until 1.0.0.
+
 One function call to get production-ready logs with colors, box decorations, structured data, and file output. Zero runtime dependencies. Full TypeScript support.
 
 ```ts
@@ -42,6 +44,7 @@ ERROR    2025-09-08 12:30:45 [root] app.ts:7 - Connection failed [host=db.intern
 - [File Logging](#file-logging)
 - [Named Loggers](#named-loggers)
 - [Advanced Usage](#advanced-usage)
+- [Common Pitfalls](#common-pitfalls)
 - [API Reference](#api-reference)
 - [TypeScript](#typescript)
 - [CommonJS](#commonjs)
@@ -403,6 +406,15 @@ const formatter = new LogFormatter({
   extraFormat: "json",
 });
 ```
+
+## Common Pitfalls
+
+- **Extras only render in default and `long-boxed` styles.** Short box styles (`short-fixed`, `short-dynamic`) drop extras for layout reasons.
+- **Calling `setupLogging` twice with the same `name`** clears the prior handlers; with different names, registries accumulate. Use `resetLogging()` for a clean slate.
+- **Lowercase levels are rejected.** Use `"INFO"`, not `"info"`. `setupLogging` throws `InvalidLevelError`.
+- **`captureCallerInfo` adds overhead.** Disable in tight loops; logs then show `<anonymous>:0` instead of `file:line`.
+- **Invalid color strings throw from 0.3.0.** Earlier versions silently dropped them and produced uncolored output.
+- **Do not mix `import` and `require` of crisplogs in the same process.** The logger registry is module-scoped.
 
 ## API Reference
 
