@@ -47,6 +47,11 @@ export class Logger {
 		return this._handlers;
 	}
 
+	/** Whether each log call captures file path and line from the stack. */
+	get captureCallerInfo(): boolean {
+		return this._captureCallerInfo;
+	}
+
 	/**
 	 * Attach a handler to this logger.
 	 *

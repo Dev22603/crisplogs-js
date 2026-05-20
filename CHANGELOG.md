@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Added
 
+- `moduleLogger(name?)` — per-file logger whose `[tag]` is derived from the caller's path (basename without extension); optional `name` override delegates to `getLogger`.
+- `Logger.captureCallerInfo` getter; child loggers from `getLogger` now inherit the root's `captureCallerInfo` setting.
 - Typed error hierarchy: `CrisplogsError`, `InvalidLevelError`, `InvalidStyleError`, `InvalidColorError`, `InvalidExtraFormatError`, `InvalidWidthError`, `InvalidFilePathError`. All errors are exported from the package root.
 - Runtime validation of `style` and `extraFormat` against their literal unions.
 - Per-method JSDoc on `Logger.debug` / `info` / `warning` / `warn` / `error` / `critical` / `log`, including notes on when extras render and the level/handler interaction.

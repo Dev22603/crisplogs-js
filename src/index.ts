@@ -35,6 +35,7 @@ import type {
 	Style,
 } from "./types";
 import { LEVEL_VALUES } from "./types";
+import { deriveModuleName, getCallerInfo } from "./utils";
 
 declare const __VERSION__: string;
 export const VERSION: string =
@@ -202,7 +203,7 @@ export function getLogger(name: string = ""): Logger {
 	// Inherit handlers from root logger if available.
 	const root = loggers.get("");
 	if (root) {
-		const logger = new Logger(name, root.level);
+		const logger = new Logger(name, root.level, root.captureCallerInfo);
 		for (const handler of root.handlers) {
 			logger.addHandler(handler);
 		}
@@ -214,6 +215,31 @@ export function getLogger(name: string = ""): Logger {
 	const logger = new Logger(name);
 	loggers.set(name, logger);
 	return logger;
+}
+
+/**
+ * Return a logger named after the calling module's file, or an explicit override.
+ *
+ * Call once per file at module scope (e.g. `export const logger = moduleLogger()`).
+ * The name is derived from the caller's path via stack inspection — no
+ * `import.meta` or manual strings required. Delegates to {@link getLogger}.
+ *
+ * @param name - Optional fixed name; when omitted, uses the basename of the
+ *   caller file without extension (e.g. `users.ts` → `"users"`).
+ *
+ * @example
+ * ```ts
+ * import { setupLogging, moduleLogger } from "crisplogs";
+ *
+ * setupLogging({ level: "INFO" });
+ * export const logger = moduleLogger();
+ * logger.info("ready"); // [users] .../users.ts:line - ready
+ * ```
+ */
+export function moduleLogger(name?: string): Logger {
+	const resolved =
+		name ?? deriveModuleName(getCallerInfo(moduleLogger).pathname);
+	return getLogger(resolved);
 }
 
 export { DEFAULT_LOG_COLORS } from "./colors";

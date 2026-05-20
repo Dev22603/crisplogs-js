@@ -2,6 +2,8 @@
  * Internal utilities for crisplogs.
  */
 
+import { basename, parse } from "node:path";
+
 /** Regex matching ANSI escape sequences (SGR, CSI, OSC, etc.). */
 const ANSI_ESCAPE =
 	/[\x1b\x9b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]|\x1b\].*?(?:\x1b\\|\x07)/g;
@@ -97,6 +99,18 @@ export function wordWrap(text: string, width: number): string[] {
 
 	lines.push(currentLine);
 	return lines;
+}
+
+/**
+ * Derive a short logger name from a file path (basename without extension).
+ */
+export function deriveModuleName(pathname: string): string {
+	if (!pathname || pathname === "<anonymous>") {
+		return "<anonymous>";
+	}
+	const base = basename(pathname);
+	const { name } = parse(base);
+	return name || base;
 }
 
 /**

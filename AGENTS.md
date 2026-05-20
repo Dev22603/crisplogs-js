@@ -7,7 +7,7 @@ Guidance for AI coding assistants using `crisplogs` in user code.
 For 95% of cases, import only from the package root:
 
 ```ts
-import { setupLogging, getLogger } from "crisplogs";
+import { setupLogging, getLogger, moduleLogger } from "crisplogs";
 ```
 
 For typed user code, the type aliases are also exported:
@@ -42,13 +42,27 @@ logger.info("server started");
 
 ## Named loggers (use after `setupLogging`)
 
+**Per-file tag (preferred):** `moduleLogger()` once at module scope — no manual name string.
+
+```ts
+import { setupLogging, moduleLogger } from "crisplogs";
+
+setupLogging({ level: "INFO" });
+export const logger = moduleLogger();   // [users] from users.ts
+logger.info("connected");
+```
+
+**Manual subsystem tag:** `getLogger("db")` when the prefix should not match the filename.
+
 ```ts
 import { setupLogging, getLogger } from "crisplogs";
 
-setupLogging({ level: "INFO" });        // configure root once
-const db = getLogger("db");             // named child, inherits root handlers
-db.info("connected");                    // tagged [db] in output
+setupLogging({ level: "INFO" });
+const db = getLogger("db");
+db.info("connected");                   // [db] in output
 ```
+
+**Call site (`path:line`)** is automatic on every log when `captureCallerInfo` is true (default), independent of the `[name]` tag.
 
 ## Non-obvious behaviors
 

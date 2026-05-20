@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { stripAnsi } from "../src";
-import { getCallerInfo, strftime, wordWrap } from "../src/utils";
+import {
+	deriveModuleName,
+	getCallerInfo,
+	strftime,
+	wordWrap,
+} from "../src/utils";
 
 // ---------------------------------------------------------------------------
 // stripAnsi
@@ -96,6 +101,29 @@ describe("wordWrap", () => {
 		const longWord = "superlongwordthatexceedswidth";
 		const result = wordWrap(longWord, 10);
 		expect(result).toEqual([longWord]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// deriveModuleName
+// ---------------------------------------------------------------------------
+
+describe("deriveModuleName", () => {
+	it("strips extension from basename", () => {
+		expect(deriveModuleName("/app/src/users.ts")).toBe("users");
+	});
+
+	it("handles windows-style paths", () => {
+		expect(deriveModuleName("D:\\proj\\api\\routes.js")).toBe("routes");
+	});
+
+	it("returns anonymous for missing path", () => {
+		expect(deriveModuleName("<anonymous>")).toBe("<anonymous>");
+		expect(deriveModuleName("")).toBe("<anonymous>");
+	});
+
+	it("preserves dotted basenames without a second extension", () => {
+		expect(deriveModuleName("/x/logger.test.ts")).toBe("logger.test");
 	});
 });
 

@@ -318,15 +318,34 @@ File writing is asynchronous (uses `WriteStream`) and won't block your event loo
 
 ## Named Loggers
 
-Use named loggers to identify which part of your application produced each message:
+Each log line also includes the **call site** (`path:line`) automatically — no extra setup. The `[name]` prefix is a separate, optional tag for grouping messages.
+
+### Per-file loggers (recommended)
+
+Use `moduleLogger()` once per file — the tag is derived from the file name (no `import.meta` or manual strings):
+
+```ts
+import { setupLogging, moduleLogger } from "crisplogs";
+
+setupLogging({ level: "INFO" });
+
+export const logger = moduleLogger();
+logger.info("Connected");   // [users] .../users.ts:12 - Connected
+```
+
+Override the tag when you need a fixed subsystem name:
+
+```ts
+export const logger = moduleLogger("db");
+```
+
+### Manual names
 
 ```ts
 import { setupLogging, getLogger } from "crisplogs";
 
-// Configure root logger once at startup
 setupLogging({ level: "INFO" });
 
-// Get named loggers anywhere in your app
 const dbLogger  = getLogger("db");
 const apiLogger = getLogger("api");
 
@@ -334,7 +353,7 @@ dbLogger.info("Connected to PostgreSQL");   // [db]  in output
 apiLogger.info("Listening on :8080");        // [api] in output
 ```
 
-Named loggers inherit the root logger's configuration (handlers, formatters). Use `setupLogging({ name: "..." })` to configure a specific logger independently.
+Named loggers inherit the root logger's configuration (handlers, formatters, and `captureCallerInfo`). Use `setupLogging({ name: "..." })` to configure a specific logger independently.
 
 ## Advanced Usage
 
@@ -424,6 +443,7 @@ const formatter = new LogFormatter({
 |----------|---------|-------------|
 | `setupLogging(options?)` | `Logger` | Configure and register a logger |
 | `getLogger(name?)` | `Logger` | Get a logger by name (inherits root config) |
+| `moduleLogger(name?)` | `Logger` | Per-file logger; name from caller file or optional override |
 | `resetLogging()` | `void` | Close all handlers, clear the registry |
 | `removeLogger(name)` | `boolean` | Remove and close a single logger |
 | `stripAnsi(text)` | `string` | Remove ANSI escape sequences from a string |

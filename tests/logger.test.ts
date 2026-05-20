@@ -10,6 +10,7 @@ import {
 	InvalidWidthError,
 	LEVEL_VALUES,
 	Logger,
+	moduleLogger,
 	removeLogger,
 	resetLogging,
 	setupLogging,
@@ -169,6 +170,58 @@ describe("getLogger", () => {
 		const output = writeSpy.mock.calls[0][0] as string;
 		expect(output).toContain("from child");
 		expect(output).toContain("[child]");
+	});
+
+	it("inherits captureCallerInfo from root", () => {
+		setupLogging({ captureCallerInfo: false });
+		const child = getLogger("caller-child");
+		expect(child.captureCallerInfo).toBe(false);
+		child.info("test");
+		const output = writeSpy.mock.calls[0][0] as string;
+		expect(output).toContain("<anonymous>:0");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// moduleLogger
+// ---------------------------------------------------------------------------
+
+describe("moduleLogger", () => {
+	let writeSpy: any;
+
+	beforeEach(() => {
+		writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+	});
+
+	afterEach(() => {
+		writeSpy.mockRestore();
+		resetLogging();
+	});
+
+	it("derives logger name from caller file", () => {
+		setupLogging({ level: "INFO" });
+		const logger = moduleLogger();
+		expect(logger.name).toMatch(/logger\.test$/);
+		logger.info("from module");
+		const output = writeSpy.mock.calls[0][0] as string;
+		expect(output).toContain(`[${logger.name}]`);
+		expect(output).toContain("from module");
+	});
+
+	it("uses explicit name when provided", () => {
+		setupLogging({ level: "INFO" });
+		const logger = moduleLogger("custom");
+		expect(logger.name).toBe("custom");
+		logger.info("tagged");
+		const output = writeSpy.mock.calls[0][0] as string;
+		expect(output).toContain("[custom]");
+	});
+
+	it("returns the same logger for repeated calls with same derived name", () => {
+		setupLogging({ level: "INFO" });
+		const a = moduleLogger();
+		const b = moduleLogger();
+		expect(a).toBe(b);
 	});
 });
 
