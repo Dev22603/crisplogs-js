@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-20
+
 ### Added
 
 - `moduleLogger(name?)` — per-file logger whose `[tag]` is derived from the caller's path (basename without extension); optional `name` override delegates to `getLogger`.
@@ -61,7 +63,8 @@ All notable changes to this project will be documented in this file. The format 
 
 Initial public releases. See `git log` for early commit history.
 
-[Unreleased]: https://github.com/Dev22603/crisplogs-js/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/Dev22603/crisplogs-js/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Dev22603/crisplogs-js/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/Dev22603/crisplogs-js/releases/tag/v0.2.3
 [0.2.2]: https://github.com/Dev22603/crisplogs-js/releases/tag/v0.2.2
 [0.2.0]: https://github.com/Dev22603/crisplogs-js/releases/tag/v0.2.0

@@ -1,6 +1,6 @@
 {
   "name": "crisplogs",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Beautiful, colored, and boxed logging for Node.js.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
