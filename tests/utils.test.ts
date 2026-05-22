@@ -72,6 +72,43 @@ describe("strftime", () => {
 	it("escapes %%", () => {
 		expect(strftime("100%%", date)).toBe("100%");
 	});
+
+	it("formats AM/PM correctly", () => {
+		const am = new Date(2025, 0, 1, 11, 59, 59);
+		const pm = new Date(2025, 0, 1, 12, 0, 0);
+		expect(strftime("%p", am)).toBe("AM");
+		expect(strftime("%p", pm)).toBe("PM");
+	});
+
+	it("formats milliseconds", () => {
+		const d = new Date(2025, 0, 1, 0, 0, 0, 456);
+		expect(strftime("%f", d)).toBe("456000");
+	});
+
+	it("formats day of the year", () => {
+		const d1 = new Date(2025, 0, 1); // Jan 1st
+		expect(strftime("%j", d1)).toBe("001");
+		const d2 = new Date(2025, 11, 31); // Dec 31st (non-leap year)
+		expect(strftime("%j", d2)).toBe("365");
+		const d3 = new Date(2024, 11, 31); // Dec 31st (leap year)
+		expect(strftime("%j", d3)).toBe("366");
+	});
+
+	it("formats weekday names", () => {
+		const d = new Date(2025, 0, 1); // Wednesday
+		expect(strftime("%a", d)).toBe("Wed");
+		expect(strftime("%A", d)).toBe("Wednesday");
+	});
+
+	it("formats month names", () => {
+		const d = new Date(2025, 0, 1); // January
+		expect(strftime("%b", d)).toBe("Jan");
+		expect(strftime("%B", d)).toBe("January");
+
+		const d2 = new Date(2025, 7, 1); // August
+		expect(strftime("%b", d2)).toBe("Aug");
+		expect(strftime("%B", d2)).toBe("August");
+	});
 });
 
 // ---------------------------------------------------------------------------
