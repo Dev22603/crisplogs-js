@@ -1,6 +1,8 @@
-# crisplogs — Complete Project & Interview Guide
+# crisplogs — Complete Project & Interview Guide (Plain-English Edition)
 
-Everything about this project in one file: what it is, how every piece works, how npm packaging works end to end, how to use it in real projects, and a large bank of interview questions with answers.
+This file explains **everything** about this project — what it does, how every piece works, how npm packages work from scratch, how to actually use this in real apps, and a big pile of interview questions with answers — all written in plain, everyday language. No assumed knowledge. Every technical word is explained with a normal-life comparison the first time it shows up.
+
+It's long on purpose. You said that's fine. Read it top to bottom once, and you'll be able to explain this project to anyone.
 
 **Package:** [`crisplogs`](https://www.npmjs.com/package/crisplogs) · **Repo:** `dev22603/crisplogs-js` · **Current version:** `0.3.0` · **License:** MIT
 
@@ -8,930 +10,619 @@ Everything about this project in one file: what it is, how every piece works, ho
 
 ## Table of Contents
 
-1. [The 30-second pitch](#1-the-30-second-pitch)
-2. [Project facts](#2-project-facts)
-3. [Architecture: how a log line is born](#3-architecture-how-a-log-line-is-born)
-4. [File-by-file walkthrough](#4-file-by-file-walkthrough)
-5. [Deep dives into the tricky parts](#5-deep-dives-into-the-tricky-parts)
-6. [npm packaging — everything you need to know](#6-npm-packaging--everything-you-need-to-know)
-7. [Using crisplogs in real projects](#7-using-crisplogs-in-real-projects)
-8. [Known gaps, bugs, and honest limitations](#8-known-gaps-bugs-and-honest-limitations)
-9. [Interview questions & answers](#9-interview-questions--answers)
-10. [Cheat sheet + 60-second walkthrough script](#10-cheat-sheet--60-second-walkthrough-script)
+1. [What is this project, in one paragraph?](#1-what-is-this-project-in-one-paragraph)
+2. [Quick facts about the project](#2-quick-facts-about-the-project)
+3. [How a single log line actually works — the post office story](#3-how-a-single-log-line-actually-works--the-post-office-story)
+4. [What's inside each file (a tour of the project)](#4-whats-inside-each-file-a-tour-of-the-project)
+5. [The five clever tricks in the code, explained simply](#5-the-five-clever-tricks-in-the-code-explained-simply)
+6. [npm packages, explained from absolute zero](#6-npm-packages-explained-from-absolute-zero)
+7. [How to actually use this in a real project](#7-how-to-actually-use-this-in-a-real-project)
+8. [The honest list of problems and missing pieces](#8-the-honest-list-of-problems-and-missing-pieces)
+9. [Interview questions and answers](#9-interview-questions-and-answers)
+10. [Cheat sheet for right before the interview](#10-cheat-sheet-for-right-before-the-interview)
 
 ---
 
-## 1. The 30-second pitch
+## 1. What is this project, in one paragraph?
 
-> crisplogs is a zero-dependency Node.js logging library that gives you production-shaped terminal logs from a single function call. `setupLogging()` returns a logger with colored level tags, timestamps, the caller's `file:line`, an optional named tag, structured key-value context, box decorations, and optional file output with ANSI codes stripped. It ships dual ESM + CommonJS builds with full TypeScript declarations, targets Node 16+, and has no runtime dependencies.
+**crisplogs** is a small tool ("library") for Node.js that makes the messages your program prints to the screen (or saves to a file) look clean and organized, instead of plain boring text. Normally when a program wants to tell you something — "server started," "something broke" — developers just use `console.log`, and everything looks the same: no color, no timestamp, no indication of how serious the message is, no clue about which file it came from. crisplogs fixes all of that with **one line of setup**:
 
 ```ts
 import { setupLogging } from "crisplogs";
 
-const logger = setupLogging({ level: "INFO", style: "long-boxed", file: "app.log" });
-logger.info("Server started", { port: 8000 });
+const logger = setupLogging();
+logger.info("Server started on port 8000");
 ```
 
-```
-INFO     2026-08-11 12:30:45 [root] app.ts:5 - Server started [port=8000]
-```
+That one call gives you, automatically:
+- **Color-coding by severity** (errors show in red, warnings in yellow, etc.)
+- **A timestamp** on every line
+- **Which file and line number** the message came from
+- **Optional labeled boxes** drawn around each message for extra visual clarity
+- **The ability to attach extra structured data** to a message (like `{ userId: 42 }`)
+- **The option to also save everything to a log file**, automatically cleaned of the invisible color codes so the file stays readable
 
-**The design idea in one sentence:** it's Python's `logging` module ergonomics (levels, named loggers, handlers, formatters, `strftime` date tokens, `colorlog`-compatible color strings) rebuilt for Node with a one-call setup.
+It needs **zero extra libraries** to work (this is a big deal — explained in section 5), it's written in **TypeScript** (a version of JavaScript that catches typos and mistakes before your code even runs), and it's been published as a real, installable package on **npm** (the app-store-like place where JavaScript code gets shared — explained fully in section 6).
 
 ---
 
-## 2. Project facts
+## 2. Quick facts about the project
 
-| Thing | Value |
+| Question | Answer |
 |---|---|
-| Package name | `crisplogs` (unscoped, public) |
-| Versions published | 0.1.0, 0.2.0, 0.2.1, 0.2.2, 0.2.3, 0.3.0 |
-| First publish | 2026-04-14 |
-| Latest publish | 2026-05-20 (`0.3.0`) |
-| Runtime dependencies | **0** |
-| Dev dependencies | `typescript`, `tsup`, `vitest`, `@biomejs/biome`, `@types/node` |
-| Source size | ~1,150 lines of TypeScript across 8 files |
-| Test suite | 91 tests across 5 files (Vitest) |
-| Build output | `dist/index.js` (CJS, 23 KB), `dist/index.mjs` (ESM, 20 KB), `dist/index.d.ts` / `.d.mts` (17 KB) |
-| Engines | `node >= 16.0.0` |
-| Lint/format | Biome |
-| Bundler | tsup (esbuild under the hood) |
+| What's it called? | `crisplogs` |
+| Where can people get it? | `npm install crisplogs` |
+| How many times has it been released? | 6 versions, from 0.1.0 up to 0.3.0 |
+| Does it need other libraries to run? | No — **zero** runtime dependencies |
+| Does it need other tools to *build* it? | Yes, but only during development (explained in section 6) |
+| How big is the code? | About 1,150 lines, spread across 8 files |
+| How well is it tested? | 91 automated checks ("tests"), 90 currently pass |
+| What versions of Node.js does it support? | Node 16 and newer |
+| Is it free / open source? | Yes, MIT license (very permissive — anyone can use it for anything) |
 
-### Public API surface
+### The building blocks it gives you
 
-**Functions:** `setupLogging(options?)`, `getLogger(name?)`, `moduleLogger(name?)`, `resetLogging()`, `removeLogger(name)`, `stripAnsi(text)`
+**Things you can call directly:**
+`setupLogging(...)` (the main one), `getLogger(...)`, `moduleLogger(...)`, `resetLogging()`, `removeLogger(...)`, `stripAnsi(...)`
 
-**Classes:** `Logger`, `LogFormatter`, `ConsoleHandler`, `CleanFileHandler`
+**Bigger reusable pieces ("classes"):**
+`Logger`, `LogFormatter`, `ConsoleHandler`, `CleanFileHandler` — all explained below.
 
-**Errors:** `CrisplogsError` (base), `InvalidLevelError`, `InvalidStyleError`, `InvalidColorError`, `InvalidExtraFormatError`, `InvalidWidthError`, `InvalidFilePathError`
+**Custom error types**, so that when something goes wrong, the error message tells you *exactly* what's wrong instead of a generic crash: `InvalidLevelError`, `InvalidStyleError`, `InvalidColorError`, and a few more.
 
-**Constants:** `LEVEL_VALUES`, `DEFAULT_LOG_COLORS`, `VERSION`
+### What it can do, as a plain list
 
-**Types:** `Level`, `Style`, `ExtraFormat`, `LogRecord`, `Formatter`, `Handler`, `SetupLoggingOptions`, `FormatterOptions`
-
-### Feature list
-
-- 5 levels matching Python's numeric hierarchy: DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
-- 4 output styles: default (no box), `short-fixed`, `short-dynamic`, `long-boxed`
-- Per-level color customization with `colorlog`-style strings (`"bold_red,bg_white"`)
-- Structured extras with 3 render modes: `inline`, `json`, `pretty`
-- Automatic caller capture (`file:line`), toggleable for hot paths
-- File logging with automatic ANSI stripping
-- Separate console vs. file level thresholds
-- Named logger registry + `moduleLogger()` for per-file tags
-- Python-compatible `strftime` date formatting
-- ANSI-aware word wrapping and padding
+- 5 severity levels, from "just noise" to "the app is dying": DEBUG, INFO, WARNING, ERROR, CRITICAL
+- 4 different visual styles (plain text, or three different box-drawing styles)
+- You can pick your own colors for each severity level
+- You can attach extra data to a log line (like a mini form: `{ userId: 42, plan: "pro" }`), and choose how it's displayed
+- It automatically tells you which file and line number logged the message
+- It can save logs to a file at the same time as printing them to the screen
+- It can tag messages by which file they came from, automatically (explained deeply below)
+- It supports the same date-formatting style Python uses, so you can write timestamps however you like
 
 ---
 
-## 3. Architecture: how a log line is born
+## 3. How a single log line actually works — the post office story
 
-The library follows the classic **Logger → Record → Handler → Formatter → Sink** pipeline (borrowed straight from Python's `logging`).
+Here's the best way to picture what happens the instant you call `logger.info("Server started", { port: 8000 })`. It's exactly like **mailing a letter through a post office that delivers to multiple addresses at once.**
 
 ```
-user code
-   │  logger.info("Server started", { port: 8000 })
+YOU write the letter
+   │   logger.info("Server started", { port: 8000 })
    ▼
-Logger._log()                        src/logger.ts
-   │  1. compare level to logger threshold → maybe drop
-   │  2. capture caller file:line via Error.captureStackTrace
-   │  3. build an immutable LogRecord object
+STEP 1 — the front desk decides if it's even worth mailing
+   │   "Is this message important enough? If you said 'only send me
+   │    WARNING and above,' and this is just an INFO, throw it away
+   │    right now — nothing else happens."
+   │
+   │   If it survives:
+   │     - it stamps the envelope with "sent from: file X, line Y"
+   │       (this uses a trick explained in section 5.1)
+   │     - it fills out a little form with everything about this
+   │       message: the text, the severity, the time, who sent it,
+   │       and any extra data you attached
    ▼
-LogRecord  { levelName, levelNo, message, timestamp, name, pathname, lineno, extra }
+That filled-out form is called a "LogRecord" — think of it as the
+completed, stamped envelope, ready to be delivered.
    │
-   ├──────────────► ConsoleHandler      src/handlers.ts
-   │                   │  level check → LogFormatter.format(record)
-   │                   ▼  process.stdout.write(text + "\n")
+   ├──► TRUCK 1: goes to your SCREEN
+   │      - checks importance again (screen might show everything)
+   │      - turns the form into readable text
+   │      - prints it
    │
-   └──────────────► CleanFileHandler    src/handlers.ts
-                       │  level check → LogFormatter.format(record)
-                       │  stripAnsi(text)
-                       ▼  fs.WriteStream.write(clean + "\n")
-
-LogFormatter.format()                 src/formatters.ts
-   formatBase()  → "LEVEL    timestamp [name] path:line - message"
-   serializeExtra() → " [port=8000]"  or JSON / pretty JSON
-   box rendering → ┌─ │ └─  with ANSI-safe padding and word wrap
+   └──► TRUCK 2: goes to a LOG FILE (only if you asked for one)
+          - checks importance again (file might only want WARNING+)
+          - turns the form into readable text
+          - removes any invisible color-codes (files don't need them)
+          - saves it to disk
 ```
 
-**Two-stage level filtering** is a deliberate part of this design (and a common interview probe):
+### Why does each truck check importance *again*?
 
-1. `Logger._log` drops records below `logger.level`.
-2. Each handler independently drops records below `handler.level`.
+This is one of the smartest design choices in the whole project, and interviewers love asking about it. **You get to set two separate importance thresholds**: one for what shows on your screen, and a different one for what gets saved to the file. For example: show me *everything* on screen while I'm developing, but only save the *serious* stuff to the file so it doesn't get cluttered with noise. One call to `logger.info(...)`, but the screen and the file can each decide independently whether to keep it.
 
-That's what makes `level: "DEBUG", fileLevel: "WARNING"` work — one record, two destinations, two thresholds.
+### The three jobs, kept separate on purpose
 
-**Key separations of concern:**
+Think of it like three different employees, each with one job, who don't step on each other's toes:
 
-- `Logger` knows *when* to log, nothing about *how it looks*.
-- `Formatter` turns a record into a string. Pure function, no I/O.
-- `Handler` owns a destination and its resource lifecycle (`emit` / `close`).
-- `setupLogging` is the composition root: it validates options, builds a formatter, wires handlers, registers the logger.
+1. **The Logger** — decides *whether* a message is worth sending at all (like a receptionist who filters junk mail before it goes anywhere).
+2. **The Formatter** — decides *what the message looks like* once written out (like a typesetter who lays out the words neatly on the page — colors, boxes, spacing). It doesn't send anything anywhere; it just turns the "form" into text.
+3. **The Handler** — decides *where the message goes* and handles the actual delivery (the truck driver). One drives to your screen, another drives to a file.
+
+Keeping these three jobs separate means you can add a brand-new delivery destination (say, sending logs to a website) without touching how messages get formatted, and you can change how things look without touching where they go. That's the whole architecture, and it's borrowed from a very well-respected system: Python's built-in logging tool works exactly this way.
 
 ---
 
-## 4. File-by-file walkthrough
+## 4. What's inside each file (a tour of the project)
 
-### `src/types.ts` (81 lines) — the contracts
+Think of this section like a tour of a small office where 8 employees each have one job.
 
-Pure type declarations plus one runtime constant. Defines `Level`, `Style`, `ExtraFormat` as string-literal unions, the `LogRecord` shape, the `SetupLoggingOptions` interface, and the `Formatter` / `Handler` interfaces that make the library extensible. `LEVEL_VALUES` is the only runtime value here — the numeric level map.
+### `src/types.ts` — "the rulebook"
 
-Why string-literal unions instead of a TS `enum`: unions erase completely at compile time (no runtime object emitted), they're assignable from plain strings so JS consumers aren't forced to import anything, and they give exhaustive checking in switch statements.
+This file doesn't *do* anything by itself — it just writes down all the shapes and rules other files must follow. For example, it says "a severity level must be one of these five words: DEBUG, INFO, WARNING, ERROR, CRITICAL — nothing else is allowed." This is TypeScript's way of catching mistakes *before* your program even runs, the same way a form that only accepts "M" or "F" in a checkbox stops you from typing "banana" by mistake.
 
-### `src/errors.ts` (75 lines) — typed error hierarchy
+### `src/errors.ts` — "the complaint department"
 
-Seven error classes, all extending `CrisplogsError`, which extends `Error`. Each sets `this.name` explicitly so stack traces read `InvalidLevelError: ...` instead of `Error: ...`. Added in 0.3.0 — before that, everything threw plain `TypeError`.
+Defines seven different kinds of error messages the library can throw when you misuse it — like "you gave me a color that doesn't exist" or "that's not a valid log level." Having *specific* named errors (instead of one generic "something went wrong") means when your code catches an error, it can immediately tell exactly what kind of mistake happened, the same way a doctor's diagnosis is more useful than just "you're sick."
 
-Why it matters: consumers can write `catch (e) { if (e instanceof CrisplogsError) ... }` to scope a catch block to library misconfiguration without swallowing genuine bugs.
+### `src/colors.ts` — "the paint mixer"
 
-### `src/colors.ts` (125 lines) — ANSI color parsing
+Turns color names you type, like `"red"` or `"bold_red,bg_white"`, into the actual invisible codes terminals understand (explained fully in our earlier ANSI conversation — see section 5.2 for a refresher). If you type a color that doesn't exist, like a typo `"brigt_red"`, this file makes the whole program stop and tell you clearly, instead of silently just... not coloring anything and leaving you confused later.
 
-Three lookup tables (foreground 30–37, background 40–47, modifiers 1–4) and `parseColorString()`, which converts `colorlog`-style strings into ANSI escape sequences:
+### `src/utils.ts` — "the toolbox"
 
-```
-"red"                → "\x1b[31m"
-"bold_red"           → "\x1b[1;31m"
-"bold_red,bg_white"  → "\x1b[1;31;47m"
-```
+Small helper tools used everywhere else:
+- **Removing invisible color codes from text** (used when saving to files)
+- **Formatting dates and times** the way Python programmers are used to (like `%Y-%m-%d` meaning "year-month-day")
+- **Word-wrapping long lines of text** so they fit neatly inside a box without cutting words in half — and doing this *correctly* even when the text has invisible color codes mixed in (a genuinely tricky detail, explained in section 5.2)
+- **Figuring out which file and line called the logger** — the "caller ID" trick, explained in section 5.1
 
-Parsing rules, in order: split on commas → trim/lowercase → `reset` short-circuits → `bg_` prefix → `modifier_color` compound → bare modifier → bare color → **throw `InvalidColorError`**.
+### `src/formatters.ts` — "the typesetter"
 
-That last step is a 0.3.0 behavior change. Previously unknown tokens were silently dropped, so a typo like `"brigt_red"` produced uncolored output with no error — a classic silent-failure trap.
+This is the piece that takes the filled-out "form" (the LogRecord) and turns it into an actual line (or box) of text. It handles all four visual styles from one flexible piece of code, using simple on/off switches ("draw a box or not," "wrap long lines or not") instead of writing four separate, mostly-duplicate versions of the same code.
 
-### `src/utils.ts` (147 lines) — the interesting internals
+### `src/handlers.ts` — "the delivery trucks"
 
-Four functions, each solving a non-obvious problem:
+Two trucks:
+- **ConsoleHandler** — delivers to your terminal screen.
+- **CleanFileHandler** — delivers to a file on disk, and always strips out the invisible color codes first, since a text file doesn't need them (and showing them raw would look like garbage in a text editor).
 
-- **`stripAnsi(text)`** — regex removing SGR, CSI, and OSC escape sequences. Used by the file handler and by every width calculation.
-- **`strftime(format, date)`** — implements Python's date tokens (`%Y %m %d %H %M %S %I %p %f %j %a %A %b %B %%`) via a single regex replace with a switch. No dependency on `date-fns` or `dayjs`.
-- **`wordWrap(text, width)`** — greedy word wrapping that measures *visible* width (ANSI-stripped) so colored text wraps at the correct column. Mirrors Python's `textwrap.wrap(..., break_long_words=False, break_on_hyphens=False)`.
-- **`getCallerInfo(belowFn)`** — captures the caller's file and line using V8's `Error.captureStackTrace(obj, belowFn)`, which truncates the stack *above* the given function so the first frame is the user's call site. Falls back to `<anonymous>:0` when unavailable.
+### `src/logger.ts` — "the receptionist"
 
-### `src/formatters.ts` (204 lines) — all four styles in one class
+This is the main `Logger` — the front desk from our post-office story. It has one method per severity level (`debug`, `info`, `warning`, `error`, `critical`), and every one of them funnels into the same shared "decide if this is worth sending" logic. It's also built to **never crash your app**: if a delivery truck breaks down (a handler throws an error), the receptionist catches that quietly and just reports it, rather than letting the whole building shut down.
 
-`LogFormatter` implements every output style through options rather than subclassing. Version 0.2.0 collapsed four separate formatter classes into this one:
+### `src/index.ts` — "the front door"
 
-| Old class | Equivalent options |
-|---|---|
-| `ColoredLogFormatter` | `{ box: false }` |
-| `ShortFixedBoxFormatter` | `{ box: true, width: N }` |
-| `ShortDynamicBoxFormatter` | `{ box: true, fullBorder: true, width: "auto" }` |
-| `LongBoxedFormatter` | `{ box: true, wordWrap: true, width: N }` |
+This is the file that everything else in the library is exported through — the only file a normal user of the library actually talks to. It holds the "address book" (a lookup table of logger names, explained in section 5.3) and defines `setupLogging()`, the one-call function that wires all the other pieces together for you.
 
-Helpers: `padVisual()` (pads ignoring ANSI), `safeStringify()` (catches circular-reference `TypeError`, returns `"[Circular]"`), `serializeExtra()` (three render modes), `formatBase()` (the common line layout).
+### `tests/` — "the quality inspectors"
 
-### `src/handlers.ts` (74 lines) — destinations
+91 small automated checks that verify the library behaves the way it's supposed to — one file of checks per source file, plus a shared helper for building fake sample data to test with. When you make a change to the code, you can run these instantly to see if you broke anything, instead of manually checking by hand every time.
 
-- **`ConsoleHandler`** — formats and writes to `process.stdout`. `close()` is a no-op.
-- **`CleanFileHandler`** — opens an `fs.WriteStream` in append mode (`flags: "a"`), strips ANSI before every write, attaches an `error` listener that reports to stderr rather than crashing the process (an unhandled stream `error` event would take down the app), and closes the stream in `close()`.
+### The paperwork files
 
-### `src/logger.ts` (269 lines) — the Logger class
-
-Level methods (`debug`, `info`, `warning`, `warn`, `error`, `critical`, `log`) all delegate to the private `_log()`. Each passes itself as the `callerFn` argument so `Error.captureStackTrace` knows which frame to cut above.
-
-Handler management is defensive: `addHandler` is idempotent (dedupes by instance identity), `clearHandlers` swallows errors from `close()` so cleanup never throws, and `_log` wraps each `handler.emit` in try/catch — one broken handler can't stop the others or crash the host app. Emit failures are reported to stderr, and even *that* write is wrapped.
-
-### `src/index.ts` (270 lines) — the public entry point
-
-Holds the module-scoped `Map<string, Logger>` registry and the five exported functions. `setupLogging` does runtime validation of every option (TypeScript catches these at compile time; plain-JS consumers get errors at runtime), merges user colors over defaults, builds one formatter shared by both handlers, clears any same-named logger's handlers to prevent duplicate output, and registers the result.
-
-`VERSION` is injected at build time by tsup's `define` (`__VERSION__` is replaced with the literal from `package.json`), with a `typeof` guard so the un-bundled TypeScript source still works in tests.
-
-### `tests/` (91 tests, 5 files)
-
-One test file per source module plus `helpers.ts` with a `makeRecord()` factory. The pattern used throughout: spy on `process.stdout.write` with `vi.spyOn(...).mockImplementation(() => true)`, assert on captured output, restore in `afterEach`. Every test uses a unique logger `name` to avoid cross-test registry pollution.
-
-### Docs and config
-
-`README.md` (17 KB, full API reference), `AGENTS.md` (guidance for AI coding assistants consuming the library), `llms.txt` (machine-readable doc index), `CONTRIBUTING.md`, `CHANGELOG.md` (Keep a Changelog format), `examples/` (10 runnable scripts), `biome.json`, `tsconfig.json` (strict mode), `tsup.config.ts`.
+`README.md` (the main instruction manual for anyone using the package), `CHANGELOG.md` (a running diary of what changed in each version), `CONTRIBUTING.md` (instructions for anyone who wants to help improve the code), plus some configuration files that tell the build tools how to behave (explained in section 6).
 
 ---
 
-## 5. Deep dives into the tricky parts
+## 5. The five clever tricks in the code, explained simply
 
-These are the five places where the code does something you can't guess from the API, and they're the richest interview material.
+These are the parts of the code that aren't obvious just from reading the function names — the stuff worth actually understanding deeply, because they make for great interview material.
 
-### 5.1 Capturing `file:line` without a stack-trace parser
+### 5.1 How does it know which file and line number called it?
 
-```ts
-const obj: { stack?: string } = {};
-Error.captureStackTrace(obj, belowFn);   // V8-only API
-```
+**The everyday version:** Imagine caller ID on a phone. When your friend calls you, your phone automatically shows you who's calling — you didn't have to ask them to tell you their number, the phone system just knows.
 
-`Error.captureStackTrace(target, constructorOpt)` writes a `.stack` string onto any object. The second argument is the magic: **every frame at or above that function is omitted**. By passing `this.info` from inside `logger.info`, the first frame in the resulting stack is the user's own call site — no need to count frames or skip a fixed offset.
+Node.js (specifically the engine it runs on, called V8 — the same one inside Chrome) has a similar trick. Whenever an error happens, it can generate a "stack trace" — a list of "who called who" going backward from where you are, like a paper trail of footsteps. crisplogs creates a *fake, blank error* on purpose (it's never actually shown to anyone) purely to grab this paper trail and read off the very first name on it — that's your file and line number.
 
-The stack string is then parsed with two regexes to handle both frame formats V8 produces:
+The clever bit: normally that paper trail would also include a bunch of *internal* footsteps from crisplogs's own code getting to that point, which you don't care about. There's a special option that says "skip everything up to and including this specific function" — so the very first name left on the list is *your* code, not crisplogs's internal machinery. That's exactly like a caller ID system that's smart enough to skip past the phone company's own switching equipment and just show you the actual person calling.
 
-```
-at Object.foo (/app/main.ts:12:5)   →  /\((.+):(\d+):\d+\)/
-at /app/main.ts:12:5                →  /at (.+):(\d+):\d+/
-```
+**Why it matters:** This is genuinely useful — every log line tells you exactly where in your code it came from, without you typing the filename yourself. **But it's not free.** Building that paper trail on every single log call takes real work, so there's a setting to turn it off in places where speed really matters (like a loop that logs thousands of times per second).
 
-**Costs and caveats worth knowing:**
-- It's a V8 API. Works on Node and Chrome; not in the spec. Hence the `typeof Error.captureStackTrace === "function"` guard.
-- Building a stack trace on every log call is the single most expensive operation in the library — hence the `captureCallerInfo: false` escape hatch.
-- Under a bundler or after minification, paths and line numbers reflect the *bundled* file unless source maps are applied.
+### 5.2 Why does colored text mess up box alignment (and how it's fixed)?
 
-### 5.2 ANSI-aware width math
+**The everyday version:** Imagine you're typing on a typewriter, but every colored word secretly also types a few *invisible* control characters around it that don't show up on the page but *do* count toward your typewriter's "characters per line" counter. If you're trying to draw a neat box around your text and you count characters wrong (including the invisible ones), your box borders will end up crooked — wider on some lines than others, even though visually the text lengths look the same.
 
-A colored string's `.length` is not its visible width. `"\x1b[32mOK\x1b[0m".length` is 11, but it occupies 2 columns. Every layout operation therefore measures `stripAnsi(text).length`:
+That's a real problem here. A colored word technically has *more* characters in it than what you actually *see*, because of the hidden color instructions wrapped around it (again, see the ANSI explanation from earlier in this conversation). So every single place in the code that needs to measure "how wide is this line of text" — for drawing box borders, for lining things up, for deciding when to wrap a long line onto the next line — has to specifically **ignore the invisible parts** and only count the visible characters.
 
-- `padVisual()` — pads box content to the right column
-- `width: "auto"` — reduces over `stripAnsi(line).length` to find the longest line
-- `wordWrap()` — accumulates visible width, not raw length
+**This was an actual bug that got fixed.** Early on, colored box borders would drift out of alignment because the code was counting the invisible characters by mistake. The fix was making sure every width calculation strips out the invisible parts first.
 
-Get this wrong and colored box borders drift out of alignment — which is exactly the bug fixed in commit `18c27b4` ("make wordWrap ANSI-safe by measuring visible width").
+### 5.3 The "address book" and why calling setup twice needs to be careful
 
-### 5.3 The registry and why `setupLogging` clears handlers
+**The everyday version:** Imagine a shared office address book that everyone in the building can look someone up in by name. If you look up "the mailroom" and it's already listed, you get directed to the existing mailroom — you don't accidentally build a second, duplicate mailroom next to it.
 
-```ts
-const loggers = new Map<string, Logger>();
-```
+crisplogs keeps exactly this kind of address book internally — a lookup table matching logger names (like `"users"`, `"payments"`, or blank for the default "root" logger) to the actual logger objects. This is what makes `getLogger("db")` called from two completely different files return the *same* logger both times, instead of two separate ones that don't know about each other.
 
-Module-scoped, so it's a singleton *per module instance*. Two consequences:
+**The tricky part:** if you call the main setup function twice using the *same* name, and the code weren't careful, you'd end up attaching a *second* delivery truck to the same address — meaning every message would get printed twice. The code specifically checks for this and cleans up the old delivery trucks first before attaching new ones, so reconfiguring is safe.
 
-1. Calling `setupLogging()` twice with the same name would attach a second `ConsoleHandler` to the same logger → every line printed twice. The code prevents this by calling `clearHandlers()` on the existing logger first.
-2. If a process loads both the ESM and CJS build (e.g. some deps `require` and others `import`), you get **two independent registries**. That's the "don't mix `import` and `require`" pitfall in the README — the dual-package hazard.
+**A subtler gotcha:** this address book lives inside one specific copy of the code. If your project somehow ends up loading *two separate copies* of the library at once (this can happen when mixing old-style and new-style import methods — explained in section 6), you get two separate address books that don't know about each other. Configuring one doesn't affect the other. This is a known, documented quirk of any library that ships in two formats, not a bug specific to crisplogs.
 
-`getLogger(name)` creates a child that shares the *same handler instances* as the root — not copies. So reconfiguring the root's handlers affects children created from it, but children created *before* a reconfiguration keep the old handler objects.
+### 5.4 What happens if you try to log something impossible, like an object that contains itself?
 
-### 5.4 Circular references in extras
+**The everyday version:** Imagine two mirrors facing each other. Point a camera between them and try to take a photo — the reflection contains a reflection, which contains a reflection, forever. A normal photo can't capture "infinity," so it would either crash the camera or you need a photographer smart enough to say "I can't capture that, I'll just write '[Circular]' on the photo instead."
 
-`JSON.stringify` throws `TypeError: Converting circular structure to JSON` on cyclic objects. A logging library must never crash the app it's observing, so:
+This can genuinely happen in real code — an object that, somewhere down the line, contains a reference back to itself. The tool JavaScript normally uses to turn objects into readable text (`JSON.stringify`) will actually **crash** if you hand it one of these self-referencing objects. Since a logging library's whole job is to never be the reason your app crashes, crisplogs wraps that conversion in a safety net: if it fails, instead of crashing, it just writes `"[Circular]"` in the log and moves on.
 
-```ts
-function safeStringify(obj: unknown, indent?: number): string {
-  try { return JSON.stringify(obj, null, indent); }
-  catch { return "[Circular]"; }
-}
-```
+This same "never crash the app, just report the problem quietly and keep going" philosophy shows up several more times throughout the code — for example, if one of the delivery trucks (handlers) itself breaks down while trying to deliver a message, that failure gets caught and reported quietly instead of taking down your whole application.
 
-The same defensive posture appears three more times: `handler.emit` in try/catch, `handler.close()` in try/catch, and the stream `error` listener. **A logger that throws is worse than no logger.**
+### 5.5 Why does it work with both old-style and new-style imports?
 
-### 5.5 Dual ESM + CJS from one TypeScript source
+**The everyday version:** Imagine a cookbook that gets published in two formats at once — a modern digital app version and an old-fashioned printed version — because some readers only know how to use one or the other. Both versions contain the exact same recipes; they're just packaged differently for different audiences.
 
-tsup (esbuild) emits both formats from `src/index.ts`, and `package.json` routes consumers via the `exports` map:
-
-```json
-"exports": {
-  ".": {
-    "types": "./dist/index.d.ts",
-    "import": "./dist/index.mjs",
-    "require": "./dist/index.js"
-  }
-}
-```
-
-`main` / `module` / `types` are kept as fallbacks for older tooling that predates `exports`. `dts: true` generates `.d.ts` and `.d.mts` declaration files so both module systems get types.
+JavaScript has two different systems for pulling in outside code: an older one (written as `require(...)`) and a newer, more modern one (written as `import ... from ...`). Both are still very common today, so a well-behaved library needs to work with *either* style, no matter which one the person using it prefers. crisplogs is built once, in modern TypeScript, and then automatically converted into **both formats** before being published — so whichever style someone's project uses, it just works. The project also publishes "type declaration" files alongside both formats, which is what lets code editors show you helpful autocomplete and catch typos before you even run the code.
 
 ---
 
-## 6. npm packaging — everything you need to know
+## 6. npm packages, explained from absolute zero
 
-This section is the "I've never made a package without help" gap-filler. Everything here is either used by this project or is standard knowledge an interviewer expects.
+This is the section for "I've never done this without help." No prior knowledge assumed — we start from "what even is a package."
 
-### 6.1 What an npm package actually is
+### 6.1 What is npm, really?
 
-A package is a **gzipped tarball** (`.tgz`) containing a `package.json` and whatever files you chose to include, uploaded to a registry (npmjs.com by default). `npm install` downloads the tarball, unpacks it into `node_modules/<name>/`, and records the resolved version + integrity hash in your lockfile. That's the whole model. There's no build step on the registry side — **you publish build output, not source**.
-
-Inspect exactly what you're about to ship, without publishing:
+Think of **npm** as an app store, but for small pieces of reusable code instead of apps. Millions of developers publish little (or big) chunks of JavaScript code to it, and anyone else can download and use them in seconds with one command:
 
 ```bash
-npm pack --dry-run      # lists files and total size
-npm pack                # writes crisplogs-0.3.0.tgz locally
-tar -tzf crisplogs-0.3.0.tgz
+npm install crisplogs
 ```
 
-### 6.2 `package.json` field by field (this project's, annotated)
+That command goes out to npm's servers, downloads the crisplogs code, and drops it into a folder called `node_modules` inside your project, ready for your code to `import` or `require`.
 
-```jsonc
-{
-  "name": "crisplogs",              // unique on the registry; lowercase, URL-safe
-  "version": "0.3.0",               // semver; must be unique per publish
-  "description": "...",             // shown in search results
-  "main": "./dist/index.js",        // CJS entry (legacy resolvers)
-  "module": "./dist/index.mjs",     // ESM entry (bundler convention, not spec)
-  "types": "./dist/index.d.ts",     // TS declarations (legacy resolvers)
-  "exports": { ... },               // modern entry map — takes priority over main
-  "files": ["dist"],                // allowlist of what goes in the tarball
-  "scripts": { ... },
-  "keywords": [...],                // registry search
-  "license": "MIT",                 // SPDX identifier
-  "author": "Dev Bachani",
-  "funding": "https://github.com/sponsors/Dev22603",
-  "repository": { "type": "git", "url": "git+https://..." },  // adds repo link on npm
-  "engines": { "node": ">=16.0.0" },  // advisory; warns (or errors with engine-strict)
-  "devDependencies": { ... }        // NOT installed by consumers
-}
+### 6.2 What is a "package," physically?
+
+A package is just a **zipped-up folder** (technically a `.tar.gz` file, but you don't need to remember that name) containing a description file (`package.json`) plus whatever actual code files the author chose to include. That's it — no magic. When you publish, you're uploading a zip file. When someone installs, they're downloading and unzipping it.
+
+**Important idea to remember:** what gets uploaded is the **finished, ready-to-run code** — not the original source files the developer was working in. It's like shipping a fully-baked cake, not the recipe and raw ingredients. The developer bakes it (this is called "building") on their own computer first, and only the baked result gets shipped.
+
+You can peek inside the zip file *before* actually publishing it, to double check exactly what would be included:
+
+```bash
+npm pack --dry-run      # just shows you a list, doesn't create anything
+npm pack                # actually creates the zip file on your computer
 ```
 
-**Fields this project doesn't use but you should know:**
+### 6.3 What is `package.json`?
 
-| Field | What it does |
+It's the **label on the box** — a plain text file describing the package: its name, its version number, which file is the "main" entry point, what other packages it depends on, and so on. Every npm package has exactly one of these at its root. Here's what crisplogs's label says, translated into plain English:
+
+| What it says (technical) | What it means (plain English) |
 |---|---|
-| `dependencies` | Installed transitively for every consumer. Keep minimal. |
-| `peerDependencies` | "You must provide this" — for plugins (e.g. a React component needs React). npm 7+ auto-installs them. |
-| `optionalDependencies` | Install failures don't fail the install. |
-| `bin` | Maps command names to scripts → creates CLI entries in `node_modules/.bin`. |
-| `sideEffects: false` | Tells bundlers the package is tree-shakeable. |
-| `type: "module"` | Makes bare `.js` files ESM. This project instead uses explicit `.mjs`/`.js` extensions. |
-| `private: true` | Hard block against accidental publish. |
-| `publishConfig` | Per-package publish settings, e.g. `{"access": "public"}` for scoped packages. |
-| `workspaces` | Monorepo support. |
+| `"name": "crisplogs"` | This box's name on the shelf. Must be unique across all of npm. |
+| `"version": "0.3.0"` | Which edition this is. Every time you publish something new, this number must go up. |
+| `"main"`, `"module"`, `"exports"` | "If someone opens this box, here's exactly which file to hand them" — with a few variations for different opening methods (old-style vs. new-style imports, explained in 5.5). `"exports"` is the modern, preferred one. |
+| `"types"` | Points to the file that gives code editors autocomplete and typo-checking. |
+| `"files": ["dist"]` | The **packing list** — literally, "only put the `dist` folder in the box, nothing else." This keeps the shipped package small and clean; there's no need to ship test files or the original unbaked source. |
+| `"license": "MIT"` | The legal terms for how people are allowed to use this code (MIT is one of the most permissive — basically "do whatever you want, just don't sue me"). |
+| `"engines": { "node": ">=16.0.0" }` | A note saying "this needs at least Node.js version 16 to work." It's a warning label, not a hard lock. |
+| `"devDependencies"` | Tools the *developer* needed while building the package, but that regular users installing it will **never** download. Like the oven and mixing bowls used to bake the cake — the person eating the cake doesn't need those. |
 
-### 6.3 Controlling what ships: `files` vs `.npmignore`
+**Fields this project doesn't use, but are good to know about:**
 
-Three mechanisms, in precedence order:
+- **`dependencies`** — the opposite of `devDependencies`. These *do* get downloaded by everyone who installs your package, because your code actually needs them to run. (crisplogs deliberately has zero of these — more on why below.)
+- **`peerDependencies`** — a special note that says "I need *you*, the person using me, to already have this other package installed, and we should share the same copy of it." Common for plugin-style packages — for example, a button-styling package built for React would list React as a peer dependency, because there should only ever be one copy of React running in an app.
+- **`bin`** — turns your package into a command-line tool people can run by typing a word in their terminal.
+- **`private: true`** — a safety switch that makes npm refuse to publish this package by accident.
 
-1. **`files` array in package.json** (allowlist — what this project uses). Safest: nothing ships unless you list it.
-2. **`.npmignore`** (denylist). If present, it fully replaces `.gitignore` for packing purposes.
-3. **`.gitignore`** used as a fallback when no `.npmignore` exists.
+### 6.4 What decides what actually gets shipped in the box?
 
-Always included regardless: `package.json`, `README`, `LICENSE`, `CHANGELOG`, and the file named by `main`.
-Never included regardless: `node_modules`, `.git`, `.npmrc`, lockfiles.
+There are two competing ways to control this, and it's worth knowing both:
 
-This project ships `["dist"]` — no source, no tests, no examples. That keeps the tarball small; the tradeoff is that source maps in `dist` point at files consumers don't have. (Shipping `src` too would fix that.)
+1. **An "allow list"** (the `files` field in `package.json`) — you explicitly say "only these things go in the box." Anything not listed gets left out, even if you forget about it. This is the **safer** approach, because forgetting to list something just means it's missing — never that something sensitive accidentally leaks in.
+2. **A "block list"** (a separate `.npmignore` file) — you say "everything goes in the box *except* these things." This is riskier: if you create a new file later and forget to add it to the block list, it silently ships without you noticing — which is exactly how private files and secrets have accidentally ended up published on npm in the past.
 
-### 6.4 Semantic versioning, for real
+crisplogs uses the safer allow-list approach — only the `dist` folder (the "baked cake") ships. No source code, no tests, no personal notes.
 
-`MAJOR.MINOR.PATCH`:
+### 6.5 Version numbers aren't just labels — they follow real rules
 
-- **PATCH** (0.0.x) — bug fixes, no API change
-- **MINOR** (0.x.0) — new features, backward compatible
-- **MAJOR** (x.0.0) — breaking changes
+npm uses a system called **semantic versioning** (nicknamed "semver"), and the three numbers in a version like `0.3.0` each mean something specific:
 
-**The 0.x rule:** while major is 0, the API is considered unstable and *minor* bumps are allowed to break things. This project's README states this explicitly and recommends `~0.3.0` pinning. Going 1.0.0 is a promise of stability, which is why it hasn't happened yet.
+```
+MAJOR . MINOR . PATCH
+  0   .   3   .   0
+```
 
-Consumer range syntax:
+- **PATCH** goes up for small bug fixes that don't change how you use the package.
+- **MINOR** goes up when new features are added, but old code still works exactly like before.
+- **MAJOR** goes up when something *breaks* — old code using the package might now need to be changed.
 
-| Range | Matches |
+**A special rule for anything starting with 0** (like this project, still at `0.3.0`): the whole package is considered "still figuring itself out," and by convention, even a MINOR bump is allowed to break things a little. That's why the README recommends people "lock" their version to exactly `0.3.0`-ish rather than trusting it'll always stay compatible — the promise of long-term stability only really begins once a project reaches version `1.0.0`.
+
+### 6.6 What do those weird `^` and `~` symbols mean in version numbers?
+
+When someone installs your package, they usually don't pin an exact version — they pin a *range*, using symbols as shorthand:
+
+| Symbol | Plain meaning |
 |---|---|
-| `1.2.3` | exactly that version |
-| `~1.2.3` | `>=1.2.3 <1.3.0` (patches only) |
-| `^1.2.3` | `>=1.2.3 <2.0.0` (minor + patch) |
-| `^0.3.0` | `>=0.3.0 <0.4.0` — **caret is special-cased for 0.x** |
-| `*` / `latest` | anything |
+| `1.2.3` | Exactly this version, nothing else |
+| `~1.2.3` | This version, or any small bug-fix update after it (but not new features) |
+| `^1.2.3` | This version, or any new-feature update after it, as long as it's not a *breaking* change |
+| `^0.3.0` | Special case! For anything starting with 0, this only allows bug-fix updates — because as covered above, minor updates on 0.x versions are allowed to break things, so npm treats them more cautiously |
 
-Bumping the version:
+### 6.7 What actually happens when someone runs `npm publish`?
 
-```bash
-npm version patch     # 0.3.0 → 0.3.1, commits, and creates a git tag
-npm version minor     # 0.3.0 → 0.4.0
-npm version major     # 0.3.0 → 1.0.0
-npm version 0.4.0-beta.1
-```
+Step by step, in plain terms:
 
-### 6.5 The publish flow, step by step
+1. You log in once on your computer (`npm login`) so npm knows who you are.
+2. Before publishing, npm automatically runs any "pre-publish checks" you've configured — for crisplogs, this means it automatically runs the linter (a tool that checks your code style for mistakes) and rebuilds the "baked cake" version fresh. **If either of those fails, the publish is blocked.** This is a safety net that prevents you from ever accidentally publishing broken code.
+3. npm zips up exactly the files your `files` list allows (plus a few things that are always included automatically, like your README and license).
+4. It uploads that zip to npm's servers under your chosen name and version number.
+5. From that moment on, anyone in the world can run `npm install crisplogs` and get it.
 
 ```bash
-npm login                      # or `npm adduser`; stores a token in ~/.npmrc
-npm whoami                     # verify identity
-npm run build                  # produce dist/
-npm pack --dry-run             # inspect the tarball contents
-npm version minor              # bump + tag
-npm publish                    # upload
-git push --follow-tags         # push code + tag
+npm login                 # sign in
+npm run build              # bake the cake fresh
+npm pack --dry-run         # double-check what's about to ship
+npm version minor          # bump the version number, e.g. 0.3.0 -> 0.4.0
+npm publish                # ship it!
 ```
 
-**Lifecycle scripts npm runs for you during publish:**
+### 6.8 Can you undo a publish?
 
-| Script | When |
-|---|---|
-| `prepublishOnly` | before packing, **only on publish** — this project runs `lint && build` here |
-| `prepack` | before the tarball is created (also on `npm pack`) |
-| `prepare` | after `npm install` in the package dir, and before publish — common place to build |
-| `postpack`, `postpublish` | cleanup / notifications |
+**Mostly no — and that's intentional.** Once you publish a version number, that exact number is **burned forever** — even if you delete it, nobody can ever publish `0.3.0` again; the next attempt would have to be `0.3.1` or higher. npm only allows fully deleting ("unpublishing") a package within the first 72 hours, and even then only if barely anyone has downloaded it yet.
 
-This project's `prepublishOnly: "npm run lint && npm run build"` is the safety net: **you cannot publish code that doesn't lint or build.**
+**Why so strict?** Because back in 2016, a developer unpublished a *tiny* (11-line!) but extremely widely-used package, and it instantly broke thousands of other projects and companies around the world that quietly depended on it without realizing. npm changed its rules after that to prevent it from happening again.
 
-### 6.6 Dist-tags, prereleases, and scoped packages
-
-Every publish gets a tag; the default is `latest`, which is what plain `npm install crisplogs` resolves to.
+The correct way to say "please don't use this version, it's broken" isn't deleting it — it's **deprecating** it, which just adds a warning message that shows up for anyone who tries to install it, while still leaving it there for anyone who genuinely needs it (like an old project that can't easily upgrade):
 
 ```bash
-npm publish --tag beta                  # publishes without moving `latest`
-npm install crisplogs@beta
-npm dist-tag ls crisplogs               # list tags
-npm dist-tag add crisplogs@0.4.0 latest # promote a version
+npm deprecate crisplogs@0.2.1 "This version has a bug, please upgrade to 0.3.0"
 ```
 
-Prerelease versions (`0.4.0-beta.1`) are excluded from `^`/`~` ranges unless explicitly requested.
+### 6.9 How do you test a package before unleashing it on the world?
 
-**Scoped packages** (`@username/package`) are namespaced and default to **private**, which requires a paid plan. To publish a scoped package for free:
+The safest way is to build the actual zip file and install *that exact file* into a separate throwaway test project — this is the closest possible simulation of what a real user will experience, because it's genuinely the same file they'd get:
 
 ```bash
-npm publish --access public
-# or permanently:  "publishConfig": { "access": "public" }
+npm pack                                          # builds crisplogs-0.3.0.tgz
+cd ../some-throwaway-test-project
+npm install ../crisplogs-js/crisplogs-0.3.0.tgz   # install it like a real user would
 ```
 
-### 6.7 Unpublishing, deprecating, and why you should care
+There's also a faster shortcut called `npm link`, which creates a shortcut ("symlink") pointing back at your project instead of actually copying files — good for quick iteration, but it behaves slightly differently from a real install, so it can occasionally hide bugs that only show up with a true install.
 
-npm's unpublish policy is deliberately restrictive (a legacy of the 2016 `left-pad` incident, where an unpublished 11-line package broke builds worldwide):
+### 6.10 `npm install` vs `npm ci` — what's the difference?
 
-- You can unpublish within **72 hours** of publishing.
-- After that, only if the package has no dependents and low download counts.
-- **A version number, once published, can never be reused** — even after unpublishing.
+- **`npm install`** figures out which versions to use (within the ranges you allowed) and may update your "lockfile" (see below) if newer compatible versions exist.
+- **`npm ci`** ("clean install") installs **exactly** what's written down in the lockfile, no guessing, no updating anything. If anything doesn't match perfectly, it fails loudly instead of guessing. This is what you should use in automated systems (like continuous testing pipelines), because it guarantees the exact same result every single time, on every machine.
 
-The correct tool for "don't use this version" is deprecation, which leaves the tarball installable but prints a warning:
+**What's a lockfile?** It's a receipt (`package-lock.json`) that records the *exact* version of every single package (and every package those packages depend on) that got installed, down to the exact byte-for-byte fingerprint. Without it, "it works on my machine" bugs happen constantly, because two different `npm install` runs on two different days could theoretically pick slightly different compatible versions.
 
-```bash
-npm deprecate crisplogs@"<0.3.0" "Upgrade to 0.3.0: parseColorString now throws on invalid colors"
-npm deprecate crisplogs@0.2.1 ""     # un-deprecate with an empty message
-```
+### 6.11 What tools does crisplogs use behind the scenes, and why?
 
-### 6.8 Security and trust
-
-- **2FA**: enable it on your npm account, and consider `npm profile enable-2fa auth-and-writes` so every publish requires an OTP (`npm publish --otp=123456`).
-- **Automation tokens**: for CI, create a granular access token rather than reusing your login. Never commit `.npmrc`.
-- **Provenance**: `npm publish --provenance` from a supported CI (like GitHub Actions) attaches a signed attestation linking the tarball to the exact commit and workflow that built it. It shows as a verified badge on npm.
-- **`npm audit`** checks your dependency tree against the advisory DB. Zero runtime dependencies means this project's attack surface is essentially its own code.
-- **Install scripts** (`postinstall`) in dependencies are an established supply-chain vector; `npm ci --ignore-scripts` in CI is a reasonable hardening step.
-
-### 6.9 Testing a package locally before publishing
-
-Four techniques, roughly in order of fidelity:
-
-```bash
-# 1. symlink into a test project (fast, but hoisting/resolution differs from real installs)
-cd crisplogs-js && npm link
-cd ../my-test-app && npm link crisplogs
-
-# 2. install the actual tarball (highest fidelity — this is exactly what consumers get)
-npm pack
-cd ../my-test-app && npm install ../crisplogs-js/crisplogs-0.3.0.tgz
-
-# 3. install straight from a local path or git
-npm install ../crisplogs-js
-npm install github:dev22603/crisplogs-js#main
-
-# 4. publish a prerelease under a non-latest tag
-npm publish --tag next
-```
-
-Technique 2 is the one that catches missing `files` entries and broken `exports` maps — the two most common "works locally, broken for users" bugs.
-
-### 6.10 `npm install` vs `npm ci`, and lockfiles
-
-- `npm install` resolves ranges, may update `package-lock.json`, and writes to it.
-- `npm ci` deletes `node_modules` and installs *exactly* what the lockfile says. Fails if lockfile and package.json disagree. **Use this in CI** — it's faster and reproducible.
-- The lockfile records resolved versions plus integrity hashes (`sha512-...`) so a tampered tarball fails verification.
-- **Libraries commit their lockfile** for reproducible development, but consumers never see it — it isn't published and doesn't constrain them.
-
-### 6.11 The build toolchain, and why these choices
-
-| Tool | Role | Why not the alternative |
+| Tool | Job | Everyday comparison |
 |---|---|---|
-| **tsup** | bundles TS → dual CJS/ESM + `.d.ts` | Raw `tsc` can't emit both formats from one config; Rollup needs plugin wiring. tsup is a thin, zero-config wrapper over esbuild. |
-| **Vitest** | test runner | Native ESM + TypeScript with no transform config, Jest-compatible API, fast. |
-| **Biome** | lint + format | One Rust binary replacing ESLint + Prettier; no plugin dependency tree. |
-| **TypeScript strict** | type checking | `strict: true` catches null/undefined mistakes at compile time. |
+| **tsup** | Turns the TypeScript source into the two "baked" formats (old-style and new-style) plus the autocomplete files | The oven that bakes the cake in two shapes at once |
+| **Vitest** | Runs the 91 automated tests | The quality inspector who checks every batch before it ships |
+| **Biome** | Checks code style and catches obvious mistakes | Spell-check, but for code |
+| **TypeScript (strict mode)** | Catches type-related mistakes before the code ever runs | A very picky proofreader who won't let a sentence through if a word doesn't make sense in context |
 
-Note that `dts: true` runs a real type-check pass, so a type error fails the build — which, via `prepublishOnly`, blocks the publish.
+### 6.12 A few extra good-to-know npm facts
+
+- **Turn on two-factor authentication (2FA)** on your npm account — like requiring a text-message code to log into your bank, this stops someone from publishing malicious updates to your package even if they somehow steal your password.
+- **`npm audit`** scans everything your project depends on for known security problems, like a background check for every ingredient in your supply chain. Since crisplogs has zero runtime dependencies, this check has almost nothing to scan — which is itself a security benefit.
+- **Scoped packages** (names like `@yourname/package`) work like a personal namespace, similar to a username-based folder — useful when the plain name you wanted is already taken by someone else.
 
 ---
 
-## 7. Using crisplogs in real projects
+## 7. How to actually use this in a real project
 
-### 7.1 The standard integration pattern
+### 7.1 The basic pattern: set up once, use everywhere
 
-**One setup call at the entry point, module loggers everywhere else.**
+The recommended approach is simple: configure logging **one time**, right when your app starts, and then every other file in your project just asks for a logger by name (or lets it auto-detect its own filename, as covered earlier) without having to reconfigure anything.
 
 ```ts
-// src/logging.ts — the single place logging is configured
+// logging.ts — the one place your whole app configures logging
 import { setupLogging } from "crisplogs";
-
-const isProd = process.env.NODE_ENV === "production";
 
 export const logger = setupLogging({
-  level: (process.env.LOG_LEVEL as any) ?? (isProd ? "INFO" : "DEBUG"),
-  colored: !isProd && process.stdout.isTTY,   // no ANSI in captured logs
-  style: isProd ? null : "long-boxed",
-  extraFormat: isProd ? "json" : "inline",
-  captureCallerInfo: !isProd,                  // skip stack capture in prod
-  file: isProd ? "logs/app.log" : null,
-  fileLevel: "WARNING",
+  level: "INFO",          // ignore DEBUG-level noise
+  style: "long-boxed",    // nicely boxed output
+  file: "app.log",        // also save to a file
 });
 ```
 
 ```ts
-// src/services/users.ts
+// users.ts — any other file, anywhere in your project
 import { moduleLogger } from "crisplogs";
-const log = moduleLogger();          // tag becomes [users]
+const log = moduleLogger();     // auto-tagged as [users], see section on this earlier
 
-export async function createUser(email: string) {
+export function createUser(email: string) {
   log.info("creating user", { email });
-  try {
-    const user = await db.users.insert({ email });
-    log.info("user created", { userId: user.id });
-    return user;
-  } catch (err) {
-    log.error("user creation failed", {
-      email,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    throw err;   // log AND rethrow — never swallow
-  }
+  // ... do the actual work ...
 }
 ```
 
-Import order matters: `setupLogging` must run before any `moduleLogger()` call executes, or the module logger will have no handlers. Import `./logging` first in your entry file.
+**One rule to remember:** the setup file has to run *before* any other file tries to use a logger, otherwise that other file's logger won't have anywhere to send its messages yet. In practice this just means: import your logging setup file first, at the very top of your app's entry point.
 
-### 7.2 Express / Fastify request logging
+### 7.2 Using it inside a web server
+
+A common real-world use is logging every incoming web request — who asked for what, and whether it succeeded or failed:
 
 ```ts
-import express from "express";
 import { getLogger } from "crisplogs";
-
 const log = getLogger("http");
-const app = express();
 
 app.use((req, res, next) => {
-  const start = Date.now();
   res.on("finish", () => {
-    const ctx = {
-      method: req.method,
-      path: req.path,
-      status: res.statusCode,
-      ms: Date.now() - start,
-      requestId: req.header("x-request-id"),
-    };
-    if (res.statusCode >= 500) log.error("request failed", ctx);
-    else if (res.statusCode >= 400) log.warning("request rejected", ctx);
-    else log.info("request", ctx);
+    if (res.statusCode >= 500) log.error("request failed", { path: req.path });
+    else log.info("request handled", { path: req.path, status: res.statusCode });
   });
   next();
 });
 ```
 
-### 7.3 CLI tools — the sweet spot
+### 7.3 Using it in a command-line tool
 
-This is where crisplogs is strongest. Box styles and colors are genuinely valuable in a terminal, and CLIs don't have the throughput concerns of a server.
+This is honestly where crisplogs shines the most — command-line tools are read directly by a human sitting at a terminal, so pretty colors and boxes genuinely help. It's less useful in situations where nobody is directly staring at the raw output (explained more below).
 
-```ts
-const logger = setupLogging({
-  style: "short-dynamic",
-  colored: process.stdout.isTTY && !process.env.NO_COLOR,
-  datefmt: "%H:%M:%S",
-  level: flags.verbose ? "DEBUG" : "INFO",
-});
-```
+### 7.4 Using it inside Docker containers / cloud deployments
 
-Respecting `NO_COLOR` and `isTTY` is standard CLI etiquette: piping output to a file or `grep` shouldn't produce escape-code soup.
+If your app runs inside a container (a standardized, portable little box your app runs in, commonly managed with a tool called Docker), the surrounding infrastructure usually already collects everything your app prints to the screen automatically and forwards it somewhere else (a log-collection system). In that situation:
 
-### 7.4 Docker / Kubernetes
+- **Don't** write to a log file — the surrounding system already captures screen output, so a separate file is redundant and can even get lost when the container is thrown away.
+- **Turn colors off** — the invisible color codes are meaningless (and look like garbage) to automated log-collection systems that aren't a real terminal.
+- **Turn off box-drawing** — the box border characters can confuse automated tools that read logs line-by-line.
 
-Containers expect logs on stdout, collected by the runtime — **don't** use the `file` option there.
+### 7.5 When crisplogs is a great choice, and when it isn't
 
-```ts
-setupLogging({
-  level: "INFO",
-  colored: false,          // log collectors don't render ANSI
-  style: null,             // box characters break line-based parsers
-  extraFormat: "json",
-  captureCallerInfo: false,
-});
-```
+**Good fit for:**
+- Command-line tools people actually watch run
+- Your own local development, before you ship anything
+- Small personal or side projects where you specifically don't want extra dependencies
+- Simple scripts and one-off tools
 
-Be aware that this still emits `LEVEL timestamp [name] file:line - message {json}`, which is *not* a single JSON object per line. If your aggregator (Loki, Datadog, ELK) needs full JSON lines, either write a custom handler (below) or use a JSON-native logger.
+**Better to use something else when:**
+- You're running a busy, high-traffic production web server and every microsecond matters — a library called **pino** is built specifically for raw speed and is the industry standard there.
+- You need logs saved as strict, uniform data (not human-readable text) for automated systems to search through — again, **pino** or another tool called **winston** handle that better.
+- You need automatic redaction of sensitive information like passwords before they ever get logged — crisplogs has no built-in feature for that; you'd need to be careful yourself about what you pass in.
 
-### 7.5 Extending it: custom handlers
-
-The `Handler` interface is 4 members, so shipping logs anywhere is straightforward:
-
-```ts
-import type { Handler, LogRecord } from "crisplogs";
-import { LEVEL_VALUES } from "crisplogs";
-
-class BatchingHttpHandler implements Handler {
-  readonly level = LEVEL_VALUES.WARNING;
-  formatter = { format: (r: LogRecord) => r.message };
-  private buffer: LogRecord[] = [];
-  private timer = setInterval(() => this.flush(), 5000);
-
-  emit(record: LogRecord) {
-    this.buffer.push(record);
-    if (this.buffer.length >= 100) this.flush();
-  }
-
-  private flush() {
-    if (!this.buffer.length) return;
-    const batch = this.buffer.splice(0);
-    fetch("https://logs.example.com/ingest", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(batch),
-    }).catch(() => { /* never let logging break the app */ });
-  }
-
-  close() { clearInterval(this.timer); this.flush(); }
-}
-
-logger.addHandler(new BatchingHttpHandler());
-```
-
-Batching matters: a handler that awaits a network call per log line will destroy throughput.
-
-### 7.6 Testing code that logs
-
-```ts
-import { afterEach, vi } from "vitest";
-import { resetLogging, setupLogging } from "crisplogs";
-
-afterEach(() => {
-  resetLogging();          // close handlers, clear the registry
-  vi.restoreAllMocks();
-});
-
-it("logs a warning on retry", () => {
-  const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-  const logger = setupLogging({ colored: false, name: "test" });
-  doTheThing(logger);
-  expect(write.mock.calls[0][0]).toContain("retrying");
-});
-```
-
-`colored: false` in tests makes assertions readable — otherwise you're matching against escape codes.
-
-### 7.7 When to use crisplogs — and when not to
-
-**Good fit:**
-- CLI tools and developer tooling
-- Local development for services (readable, boxed, colored)
-- Small services and side projects where an extra dependency tree isn't wanted
-- Scripts, cron jobs, build tooling
-- Anywhere zero dependencies is a hard requirement
-
-**Reach for something else when you need:**
-- **Maximum throughput** → **pino**. It's the benchmark leader, using async transports in worker threads and doing minimal work on the hot path. crisplogs writes synchronously to stdout and (by default) builds a stack trace per call.
-- **True JSON-lines output** for log aggregation → **pino** or **winston** with a JSON format.
-- **Automatic PII/secret redaction** → pino's `redact` option. crisplogs has none.
-- **Log rotation** → `winston-daily-rotate-file` or an external tool like `logrotate`. `CleanFileHandler` appends forever.
-- **A large transport ecosystem** (Elasticsearch, CloudWatch, Sentry, Kafka) → **winston**.
-- **Distributed tracing context propagation** → OpenTelemetry logging + an instrumented logger.
-- **Browser support** → this is Node-only (`node:fs`, `node:path`, `process.stdout`).
-
-**Honest framing for an interview:** "For a production HTTP service under load I'd use pino. I built crisplogs for the developer-experience end — CLIs and local dev, where readable output matters more than nanoseconds per line — and to learn the full library-authoring and publishing lifecycle end to end."
-
-### 7.8 A production checklist
-
-- [ ] `setupLogging` called exactly once, in the entry module, before anything else logs
-- [ ] Level driven by env var, defaulting to `INFO` in production
-- [ ] `colored: false` when not a TTY (or when `NO_COLOR` is set)
-- [ ] `captureCallerInfo: false` in production hot paths
-- [ ] stdout in containers; files only on VMs with rotation configured externally
-- [ ] Never log secrets, tokens, passwords, full card numbers, or raw PII in `extra`
-- [ ] `resetLogging()` in test teardown
-- [ ] Version pinned with `~0.3.0` while the package is 0.x
-- [ ] Log *and* rethrow in catch blocks; don't let logging replace error handling
+**A genuinely honest way to explain this trade-off:** crisplogs optimizes for being pleasant for a *human* to read directly. Faster, more industrial tools optimize for being read by *machines* at massive scale. Both are valid goals — they're just different goals, and this project was built to explore and understand the human-focused end (plus, as a personal project, to learn the entire process of building and shipping a real package from nothing).
 
 ---
 
-## 8. Known gaps, bugs, and honest limitations
+## 8. The honest list of problems and missing pieces
 
-Being able to critique your own project is one of the strongest signals in an interview. These are real, verified findings in the current tree.
+Being able to point out real weaknesses in your own project — calmly, specifically, and with a fix in mind — is one of the strongest signs of understanding you can show in an interview. These are genuine, double-checked findings, not made up for effect.
 
-### Verified issues
+1. **A "does this even matter?" check gives the wrong answer.** There's a feature meant to let you check "would a DEBUG-level message actually get shown right now?" *before* doing potentially expensive work to build that message. Right now, that check doesn't actually look at the real, final threshold that was configured — so it can say "yes, that would show" even when it actually wouldn't. Confirmed by testing it directly. **The fix** is straightforward: make that check also look at the real threshold.
 
-1. **`isEnabledFor()` returns the wrong answer after `setupLogging({ level })`.**
-   `setupLogging` always constructs the `Logger` with `LEVEL_VALUES.DEBUG` and puts the real threshold on the *handler*. So with `level: "WARNING"`, `logger.isEnabledFor("DEBUG")` returns `true` even though DEBUG output is filtered out at the handler. Verified:
-   ```
-   logger.level = 10, isEnabledFor("DEBUG") = true, but debug() prints nothing
-   ```
-   This defeats the documented "guard expensive serialization" use case. **Fix:** have `isEnabledFor` also check `Math.min(...handlers.map(h => h.level))`, or set the logger level from the option.
+2. **One automated test fails, depending on which computer runs it.** A test checks that a Windows-style file path (using backslashes) gets shortened correctly, but the underlying tool used to shorten file paths behaves differently on Windows versus Mac/Linux. So the test passes on Windows but fails everywhere else. This is a small, easily fixable bug, and a good illustration of why testing on multiple operating systems automatically (instead of just one developer's laptop) matters.
 
-2. **One test fails on non-Windows platforms.** `tests/utils.test.ts:117` expects `deriveModuleName("D:\\proj\\api\\routes.js") === "routes"`, but `node:path`'s `basename` on POSIX doesn't treat `\` as a separator, so it returns the whole string. The suite is 90/91 on Linux and macOS. **Fix:** use `path.win32.basename` when the path looks Windows-shaped, or make the test platform-conditional.
+3. **Two of the project's documents disagree with each other about the minimum required Node.js version.** One says 16, another says 18. Small, but the kind of inconsistency a careful reviewer would flag.
 
-3. **`engines` disagrees with the docs.** `package.json` says `node >=16.0.0`; `CONTRIBUTING.md` says the package targets `>=18.0.0`. One of them is wrong.
+4. **There's no automated pipeline that runs the tests every time code changes.** Right now, everything relies on the person publishing to remember to run the tests and checks themselves before shipping. A proper setup would automatically run every test, on every change, on multiple operating systems, catching mistakes before they ever reach real users — this is one of the most valuable improvements that could be made next.
 
-4. **No CI.** There's no `.github/workflows`, so nothing runs the tests, lint, or build on push. `prepublishOnly` is the only gate, and it runs on the publisher's machine. **Fix:** a GitHub Actions workflow running `npm ci && npm run lint && npm test && npm run build` across a Node version matrix, plus a publish job using `--provenance`.
+5. **No built-in feature for automatically hiding sensitive information** (like passwords or personal data) before it gets logged. If someone accidentally logs a password, crisplogs will happily print it — nothing stops that.
 
-5. **Source maps point at files that aren't shipped.** `files: ["dist"]` excludes `src/`, but the built `.map` files reference it. Either ship `src` or drop the maps.
+6. **No child loggers with "remembered" context.** In many real logging tools, you can create a logger that automatically remembers something (like "this is request #4471") and attaches it to every message from that point on, without you retyping it each time. crisplogs doesn't have this yet — you have to manually pass the extra data every single time you log something.
 
-### Design limitations (by choice, but you should be able to name them)
+### A realistic plan to fix these and reach a stable "1.0" release
 
-- **Synchronous console writes.** `process.stdout.write` is synchronous to files and TTYs on POSIX. Under heavy logging this blocks the event loop. pino avoids this with worker-thread transports.
-- **Stack capture on every call** is the dominant per-log cost. Mitigated but not solved by `captureCallerInfo: false`.
-- **The formatter is shared between console and file handlers**, so you can't have colored boxes on the console and plain single lines in the file — the file just gets the same layout with ANSI stripped.
-- **No log rotation, no sampling, no rate limiting, no redaction, no async flush guarantees on process exit.** A `process.on("exit")` flush hook would be a sensible addition.
-- **No child-logger context binding.** There's no `logger.child({ requestId })` that automatically merges context into every subsequent call — you pass `extra` manually each time. This is the single most requested feature in real-world logging.
-- **Extras are silently dropped in short box styles.** Documented, but silent data loss is a debatable default; a warning or a `long-boxed` fallback might be better.
-- **No benchmarks.** Claims about performance are currently unmeasured.
-
-### A credible roadmap to 1.0
-
-1. Fix `isEnabledFor` and the Windows path test; add CI with a Node matrix.
-2. Add `logger.child(context)` for bound context.
-3. Add a JSON-lines formatter for aggregators.
-4. Add optional per-handler formatters.
-5. Add benchmarks against pino/winston so the tradeoffs are documented, not asserted.
-6. Add redaction hooks for sensitive keys.
-7. Freeze the API and cut 1.0.0.
+1. Fix the "does this matter?" check bug, and the failing test.
+2. Add automated multi-computer testing that runs on every change.
+3. Add the "remembered context" feature described above.
+4. Measure actual speed with real benchmarks instead of guessing.
+5. Once the above is solid, officially commit to long-term stability and call it version 1.0.
 
 ---
 
-## 9. Interview questions & answers
+## 9. Interview questions and answers
 
-### A. Project overview and motivation
+These answers stay professional and technically precise — the way you'd actually want to sound in an interview — but every term is either self-explanatory in context or was already defined in plain English earlier in this document. If an interviewer's follow-up question uses a word you don't recognize, it's almost certainly explained somewhere in sections 3–6 above.
 
-**Q: Walk me through this project.**
-A: crisplogs is a zero-dependency Node.js logging library published on npm. The core idea is that `setupLogging()` — one call — gives you production-shaped logs: colored level tags, timestamps, the caller's file and line, an optional named tag, structured key-value context, and optional file output. It follows the Logger/Record/Handler/Formatter architecture from Python's `logging` module, which cleanly separates *when* to log from *how it's rendered* and *where it goes*. It's ~1,150 lines of strict TypeScript, 91 tests, and ships dual ESM and CommonJS builds with type declarations. It's at 0.3.0 with six published versions.
+### A. The big picture
 
-**Q: Why build another logger when pino and winston exist?**
-A: Two reasons. First, a genuine gap at the developer-experience end: pino optimizes for machine-readable throughput and needs `pino-pretty` to be human-readable, and winston brings a dependency tree. For CLIs and local development I wanted readable, colored, boxed output with zero dependencies and one line of setup. Second, honestly, the packaging lifecycle itself was the point — dual-format builds, `exports` maps, semver policy, publishing — you only really learn that by shipping something.
+**Q: What does this project do, in your own words?**
+A: It's a small, dependency-free Node.js library that turns plain, boring console output into readable, organized logs — with color-coding by severity, timestamps, the exact file and line the message came from, optional box formatting, and the ability to attach structured extra data. One function call configures the whole thing. I modeled the design on Python's built-in logging system, which cleanly separates *deciding whether to log something* from *deciding how it looks* from *deciding where it goes*.
 
-**Q: Why model it on Python's logging module?**
-A: The Logger/Handler/Formatter split is a proven design. One record can fan out to multiple destinations, each with its own threshold, and formatting is a pure function separate from I/O. That's what makes `level: "DEBUG", fileLevel: "WARNING"` fall out naturally. Matching the numeric level values (10/20/30/40/50) and `strftime` tokens also means anyone coming from Python is immediately at home.
+**Q: Why build this instead of using an existing, popular logging library?**
+A: Two honest reasons. First, there was a real gap for me: the most popular high-performance logging library (pino) is optimized for speed and machine-readable output, and needs an extra add-on just to look nice in a terminal during development. I wanted something that looked good out of the box, with zero extra dependencies, for command-line tools and local development. Second — and just as important — building and *publishing* a real package was the actual learning goal. You only really understand how packages work end-to-end by shipping one yourself.
 
-**Q: What was the hardest part?**
-A: ANSI-aware layout. A colored string's `.length` isn't its visible width — `"\x1b[32mOK\x1b[0m"` is 11 characters but 2 columns. Every padding, wrapping, and auto-width calculation has to measure `stripAnsi(text).length` instead. I had an actual bug where colored box borders drifted out of alignment, fixed in the commit that made `wordWrap` measure visible width.
+**Q: What was the hardest part to get right?**
+A: Getting the visual layout correct when color is involved. A colored piece of text technically contains more characters than what you actually see, because of invisible formatting codes wrapped around it. Every calculation that measures "how wide is this text" — for box borders, padding, or wrapping long lines — has to specifically skip over those invisible characters and only count what's visible. I actually had a real bug early on where colored box borders drifted out of alignment because of this, before I fixed the width calculations to ignore the invisible parts.
 
-### B. Technical deep dives on the code
+### B. How the code actually works
 
-**Q: How do you capture the caller's file and line number?**
-A: V8's `Error.captureStackTrace(targetObject, constructorOpt)`. It writes a `.stack` string onto any object, and the second argument tells V8 to omit every frame at or above that function. Each level method passes itself — `this.info` from inside `info()` — so the first frame in the resulting stack is the user's call site. Then two regexes handle V8's two frame formats, one with parentheses and one without. It's a V8-specific API, so there's a `typeof` guard and an `<anonymous>:0` fallback.
+**Q: How does the library know which file and line number logged a message?**
+A: I use a feature of Node's underlying engine that lets you generate a "stack trace" — basically a paper trail of function calls — attached to any object, even one that was never actually thrown as a real error. There's an option that lets you say "cut off everything at or above this specific function," so the very first entry left in that paper trail is the user's own code, not any of my library's internal plumbing. It's genuinely useful, but it's also the most expensive single operation in the whole library, so there's a setting to turn it off in performance-sensitive code.
 
-**Q: What does that cost, and what did you do about it?**
-A: It's the most expensive thing in the library — a stack trace on every single call. There's a `captureCallerInfo: false` option that skips it entirely; logs then show `<anonymous>:0`. The honest answer is that this is exactly why pino is faster: pino does essentially no work on the hot path, while crisplogs trades throughput for the file:line that makes logs actually useful during development. I'd recommend disabling it in production hot paths.
+**Q: There used to be four separate classes for the four visual styles. Why is it one class now?**
+A: Because those four classes were 80% identical — they only differed in three yes/no choices: draw a box or not, use a full border or just a left edge, and wrap long lines or not. Splitting that into four separate classes meant a lot of duplicated logic, and it also meant you *couldn't* combine options in ways the class hierarchy didn't specifically support. Turning those three yes/no choices into plain settings on one flexible class fixed both problems at once — less duplicate code, and every combination becomes possible automatically.
 
-**Q: There are four output styles. Four formatter classes?**
-A: There were, originally. Version 0.2.0 collapsed them into one configurable `LogFormatter` because the four classes shared 80% of their logic and differed in three booleans: draw a box, full border vs left border, and word wrap. Inheritance was encoding a small combination space as a type hierarchy. Composition through options made it one class, and it also unlocked combinations the class hierarchy couldn't express — like a full-border box *with* word wrap.
+**Q: What happens if something goes wrong while trying to actually deliver a log message — like writing to a file fails?**
+A: It's caught and reported quietly rather than crashing your application. The core belief behind this design is that a logging tool crashing the very application it's supposed to be observing is a much worse outcome than a single log line silently failing to save. That same defensive thinking shows up in a few other places too — for example, if someone logs an object that accidentally contains a reference to itself (which would normally crash JavaScript's built-in text-conversion tool), the library catches that specific failure and just writes a placeholder instead of crashing.
 
-**Q: What happens if a handler throws?**
-A: It's caught. `_log` wraps each `handler.emit` in try/catch and writes a message to stderr — and even that stderr write is wrapped, because if stderr itself is broken there's nothing left to do but swallow. Same posture in `clearHandlers`, which catches errors from `close()`. The principle is that a logger that crashes the application it's observing is worse than no logger at all.
+**Q: Explain the "logger registry" — what is it and why does it exist?**
+A: It's an internal lookup table that matches logger names to the actual logger objects, so that asking for a logger by the same name from two completely different files gets you back the *same* object both times, rather than two separate ones that don't share configuration. The one subtlety is that reconfiguring a name that's already registered has to carefully clean up the old setup first — otherwise you'd end up with duplicate output, since the old and new configurations would both still be active at once.
 
-**Q: What if someone logs an object with a circular reference?**
-A: `JSON.stringify` throws a `TypeError` on cyclic structures, so all serialization goes through a `safeStringify` helper that catches it and returns `"[Circular]"`. Same defensive reasoning.
+**Q: Why did you write your own runtime checks for things TypeScript already checks at compile time?**
+A: Because TypeScript's checks only exist while the code is being written and compiled — they completely disappear once the code actually runs, and roughly half of everyone using a JavaScript package isn't even using TypeScript in the first place. Without a runtime check, someone passing an invalid value from plain JavaScript would get a confusing, silent malfunction instead of a clear error message explaining exactly what they did wrong and what the valid options are.
 
-**Q: Explain the logger registry.**
-A: A module-scoped `Map<string, Logger>`. `setupLogging` registers under a name (`""` for root), `getLogger(name)` returns an existing logger or creates a child that inherits the root's handlers, and `resetLogging()` / `removeLogger()` clean up. Two subtleties: calling `setupLogging` twice with the same name would attach a second console handler and print everything twice, so it calls `clearHandlers()` on the existing logger first. And because the map is module-scoped, loading both the ESM and CJS builds in one process creates two independent registries — the dual-package hazard.
+**Q: In one of your updates, you changed things so invalid inputs now cause an error, when they used to fail silently. Why?**
+A: Because silent failure was strictly worse. Before that change, a typo in a color name would just result in uncolored output with absolutely no warning — so debugging that meant suspecting your terminal, your configuration, anything *except* the actual typo, because nothing ever told you something was wrong. Failing loudly and immediately, right when the mistake is made, is much easier to debug than failing silently and finding out much later.
 
-**Q: What's the dual-package hazard?**
-A: When a package ships both ESM and CJS, Node treats them as separate module instances. If part of your dependency tree does `require("crisplogs")` and another part does `import "crisplogs"`, you get two copies with two registries — configure one, and the other still has no handlers. It's an inherent cost of dual publishing. Mitigations are documenting it (what I did), shipping ESM-only, or moving shared state outside the module.
-
-**Q: How does `moduleLogger()` know the file name?**
-A: Same stack-capture trick. It calls `getCallerInfo(moduleLogger)` to get the caller's path, then `deriveModuleName` takes the basename without extension — `users.ts` becomes `"users"` — and delegates to `getLogger`. So you get a per-file tag without `import.meta.url` or a hardcoded string, and it works identically in ESM and CJS.
-
-**Q: Why string-literal unions instead of TypeScript enums for `Level`?**
-A: Unions erase completely at compile time, so no runtime object is emitted. They're structurally assignable from plain strings, so JavaScript consumers don't need to import anything to pass `"INFO"`. And they give exhaustiveness checking in switch statements. TS enums generate runtime code and have well-known quirks — numeric enums allow arbitrary numbers, and `const enum` breaks under isolated-modules transpilation.
-
-**Q: You validate options at runtime even though TypeScript checks them. Why?**
-A: TypeScript is compile-time only, and roughly half of npm consumers are on plain JavaScript. Types offer them nothing. `setupLogging({ level: "info" })` from JS would otherwise silently produce `LEVEL_VALUES["info"] === undefined` and break comparisons in a confusing way. The runtime check turns that into an `InvalidLevelError` naming the valid options. It's the "parse, don't validate" boundary — untrusted input gets checked once, at the edge.
-
-**Q: Why a custom error hierarchy?**
-A: So consumers can scope a catch block. Everything extends `CrisplogsError`, which extends `Error`, so `catch (e) { if (e instanceof CrisplogsError) }` catches library misconfiguration without swallowing genuine bugs, and `instanceof InvalidLevelError` distinguishes specific cases. Each class sets `this.name` so stack traces read `InvalidLevelError:` rather than `Error:`. It was a breaking change in 0.3.0 — code catching `TypeError` had to switch — which is documented in the changelog.
-
-**Q: In 0.3.0 you made invalid color strings throw instead of being ignored. Isn't throwing worse?**
-A: Silent failure was worse. Before 0.3.0, `"brigt_red"` produced an empty ANSI sequence, so your logs were just... uncolored, with no signal. Debugging that means suspecting your terminal, your CI, your config, before ever suspecting the typo. The failure surfaces at `setupLogging` — startup — not in the middle of request handling, so failing fast is safe. It's a breaking change and it's in the changelog with a migration note.
-
-**Q: Why zero runtime dependencies?**
-A: Three reasons. Supply-chain surface: every transitive dependency is code you're implicitly trusting, and logging sits in every file of an application. Install size and resolution time. And version conflicts — a logger that drags in a `chalk` version fighting with the app's is a bad neighbor. The cost was implementing `strftime`, ANSI parsing, and word wrapping myself, which is maybe 300 lines. For a library that specific, that's a good trade.
+**Q: Why does this library have zero runtime dependencies? Isn't that more work?**
+A: It is more work, yes — I had to write my own date formatting, my own color-code handling, and my own text-wrapping instead of pulling in existing tools for those. But the trade-off is worth it for a library this specific: every dependency you add is code you're trusting blindly, it's extra download size for everyone who installs your package, and it's one more thing that could conflict with a different version of the same dependency somewhere else in a user's project. For roughly 300 extra lines of code, avoiding all of that felt like a clearly good trade.
 
 ### C. Testing
 
-**Q: How do you test something whose output is terminal escape codes?**
-A: Three layers. Formatters are pure functions — feed a fixed `LogRecord` from a `makeRecord()` factory with a frozen timestamp, assert on the returned string. Handlers get tested by spying on `process.stdout.write` with `vi.spyOn(...).mockImplementation(() => true)` and asserting on captured calls. And utilities like `stripAnsi`, `strftime`, and `wordWrap` are tested directly with table-driven cases. The colored assertions check for `\x1b[` markers and specific codes; most behavioral tests run with `colored: false` so assertions are readable.
+**Q: How do you test something whose actual output is full of invisible formatting codes?**
+A: A few layers. For the pure "turn this data into text" logic, I feed in a fixed, known sample and check the exact text that comes back — no screen or file involved at all, just checking a function's output directly. For the parts that actually write somewhere (like the screen), I temporarily intercept that write function during the test so nothing actually gets printed, and instead check what *would* have been printed. And for most behavior tests, I turn colors off entirely, since checking for exact invisible codes in every test would make the tests hard to read.
 
-**Q: 91 tests but no coverage number. Is that a gap?**
-A: Yes — I'd add `vitest --coverage` and a threshold. Coverage isn't a quality metric on its own, but it's a useful floor and it catches genuinely untested branches. Right now I know from writing them that the tests cover all four styles, all three extra formats, every validation error, level filtering on both logger and handler, file writing with ANSI stripping, and the registry lifecycle.
-
-**Q: Are there any failing tests?**
-A: One, and it's environment-dependent. A test asserts `deriveModuleName("D:\\proj\\api\\routes.js")` returns `"routes"`, but `node:path`'s `basename` on POSIX doesn't treat backslash as a separator, so on Linux and macOS it returns the whole string. The fix is either `path.win32.basename` for Windows-shaped paths or making the test platform-conditional. It's a good illustration of why CI with an OS matrix matters — running only on one machine hides this.
-
-**Q: How would you test the file handler without leaving files around?**
-A: Write to a temp directory from `os.tmpdir()`, and clean up in `afterEach`. The tricky part is that `fs.WriteStream` is asynchronous, so you have to await the `finish` event after `close()` before reading the file back — otherwise you're racing the flush. An alternative for pure unit testing is injecting the stream, which would make the handler testable with an in-memory writable.
+**Q: Is there a test that currently fails? Why?**
+A: Yes, one — and it's a good example of an environment-specific bug. It checks that a Windows-style file path gets shortened correctly, but the built-in tool used to shorten paths behaves differently depending on which operating system runs it. So the test passes if you happen to run it on Windows, but fails on Mac or Linux. It's a strong argument for testing automatically on multiple operating systems rather than just trusting one developer's machine.
 
 ### D. npm and packaging
 
-**Q: What actually happens when you run `npm publish`?**
-A: npm runs `prepublishOnly` (here: lint and build), then `prepack`, then it creates a gzipped tarball containing only what the `files` array allows plus the always-included files like README and LICENSE. It uploads that with your auth token, and the registry rejects it if the name+version already exists. Then `postpublish` runs. The registry does no building — you publish artifacts, not source.
+**Q: Walk me through what happens the moment you run the publish command.**
+A: First, npm automatically runs any pre-publish checks I've configured — in my case, linting the code and rebuilding the finished output fresh, so a broken build can never accidentally get published. Then it zips up exactly the files I've explicitly allowed (plus a few things that are always included, like the README), uploads that zip to npm's servers under the package name and version number, and from that second onward, anyone in the world can install it.
 
-**Q: How do you support both ESM and CommonJS?**
-A: tsup emits both from one TypeScript entry: `dist/index.js` for CJS and `dist/index.mjs` for ESM, plus `.d.ts` and `.d.mts` declarations. The `exports` map routes consumers — `require` gets the CJS file, `import` gets the ESM file, and `types` is listed first because condition order matters for TypeScript resolution. `main`, `module`, and `types` are kept as fallbacks for tooling older than the `exports` field.
+**Q: How do you support both the old-style and new-style ways of importing JavaScript code?**
+A: I write the code once, in modern TypeScript, and a build tool automatically produces two separate output versions from that single source — one for each style. The package's configuration file then tells Node.js exactly which of the two files to hand someone, depending on which style of import they're using. Type-checking files are generated for both as well, so people get autocomplete and typo-checking either way.
 
-**Q: What's the difference between `main`, `module`, `exports`, and `types`?**
-A: `main` is the original CJS entry. `module` is a bundler convention, never part of Node's resolution. `types` points at declarations for older TS resolvers. `exports` is the modern one and it supersedes all of them in Node 12+ — it's a conditional map (`import`/`require`/`types`/`node`/`default`), and critically it *encapsulates* the package: once you define `exports`, consumers can't deep-import internal files that you didn't list. That's how this package prevents people from reaching into `dist/formatters.js` and coupling to internals.
+**Q: What controls what actually gets included when you publish?**
+A: I use an explicit "only include these things" list rather than an "include everything except these things" list, because the "only include" approach fails safely — if I forget to add something new, it's simply left out rather than accidentally shipped. The other direction is riskier: forgetting to exclude something new means it silently gets included, which is exactly the kind of mistake that's led to private files leaking in other real-world packages.
 
-**Q: `files` vs `.npmignore`?**
-A: `files` is an allowlist in package.json, `.npmignore` is a denylist file. If both exist, `files` wins. I use `files: ["dist"]` because an allowlist fails safe — new files don't accidentally ship. With a denylist, forgetting to ignore a new directory means it silently ships, which is how secrets and `.env` files end up on the registry. `npm pack --dry-run` verifies exactly what's included before you publish.
+**Q: How do you decide whether a change deserves a small update number bump versus a bigger one?**
+A: Bug fixes that don't change how anyone uses the package get the smallest bump. New features that don't break existing usage get a medium bump. Anything that could break someone's existing code gets the largest bump. The one wrinkle is that while a package's version starts with zero, that convention gets a little looser — even a "medium" bump is allowed to include a breaking change, since the whole package is still considered to be finding its shape. That's exactly what happened in one of my updates: I added a new feature, but in the same release I also changed invalid inputs from silently doing nothing to throwing a clear error — which is technically a breaking change for anyone who somehow depended on the old broken behavior.
 
-**Q: How do you decide patch vs minor vs major?**
-A: Semver: patch for backward-compatible bug fixes, minor for backward-compatible features, major for breaking changes. But this package is 0.x, where the convention is that the API is unstable and minor bumps *may* break. 0.3.0 is a good example — it added `moduleLogger` (a feature) but also made invalid colors throw and swapped `TypeError` for typed errors (breaking). Under 1.x that would have been 1.0.0 → 2.0.0. The README states the 0.x policy and recommends `~0.3.0` pinning, and everything's in the changelog.
+**Q: Suppose you published a version with a serious bug. What do you actually do?**
+A: Publish a fixed version right away under a new, higher version number — you can never reuse or overwrite the broken one, that number is permanently gone. Then mark the broken version with a clear warning message so anyone trying to install it sees a note pointing them to the fix, while still leaving it downloadable for anyone who genuinely can't upgrade immediately. Fully deleting a published version is only realistically possible in the first few days after publishing, and only if almost nobody has used it yet — which is intentional, since a much more widely-used package once got fully deleted years ago and it broke a huge number of unrelated projects that quietly depended on it.
 
-**Q: What does `^0.3.0` match?**
-A: `>=0.3.0 <0.4.0` — caret is special-cased for 0.x versions because the leftmost non-zero digit is treated as the major. For `^1.3.0` it would be `>=1.3.0 <2.0.0`. This trips people up constantly.
+**Q: How would you verify a package actually works correctly before publishing it for real?**
+A: Build the real, final zip file exactly as it would be published, and install *that exact file* into a separate, throwaway test project — that's the closest possible simulation of what an actual user would experience, since it's genuinely the same file. That specific approach is what catches the two most common "it works on my machine but breaks for real users" mistakes: forgetting to include a file that's actually needed, or misconfiguring which file gets handed to which import style.
 
-**Q: You published a broken version. What now?**
-A: Publish a fix as a new patch version immediately, then `npm deprecate crisplogs@0.3.1 "broken, use 0.3.2"` so anyone installing it sees a warning. Unpublishing is a last resort — it's only allowed within 72 hours and only when nothing depends on it, and the version number is burned forever. If it's a security issue, I'd also file an advisory so `npm audit` picks it up. The `left-pad` incident is why the policy is this strict.
+**Q: What's the difference between a normal install and the "clean install" command, and why does it matter for automated testing pipelines?**
+A: A normal install resolves version ranges and may update the lockfile if newer compatible versions are available — so two installs on two different days could theoretically produce slightly different results. A "clean install" installs *exactly* what's recorded in the lockfile, with no guessing, and fails loudly if anything doesn't match perfectly. Automated pipelines should always use the clean version, because reproducibility — getting the exact same result every single time, on every machine — is the entire point of automated testing.
 
-**Q: How do you test a package before publishing?**
-A: `npm pack` to build the real tarball, then `npm install ../crisplogs-js/crisplogs-0.3.0.tgz` in a scratch project. That's the highest-fidelity check because it exercises the exact `files` and `exports` config consumers get. `npm link` is faster but symlinks resolve differently and can hide problems. And I'd verify both `import` and `require` work, and that TypeScript resolves the types, since those are the three things that break independently.
+### E. Design thinking and trade-offs
 
-**Q: What are peer dependencies and when would you use one?**
-A: A peer dependency declares "the host application must provide this" — you use it when your package extends something that must be a single shared instance, like a React component library declaring React as a peer. If it were a regular dependency you could end up with two copies of React and broken hooks. crisplogs has none because it's standalone.
+**Q: If you were starting this project over from scratch, what would you do differently?**
+A: A few things. I'd add the "remembered context" feature I mentioned earlier — the ability to create a logger that automatically attaches something like a request ID to every message from that point on, without retyping it each time; that's genuinely the single most useful feature missing right now. I'd fix the "does this matter?" check so it actually reflects the real configured threshold. And I'd set up automated multi-machine testing from day one instead of adding it later, since that's exactly what would've caught the operating-system-specific test failure immediately instead of it sitting there unnoticed.
 
-**Q: How would you set up CI/CD for this?**
-A: A GitHub Actions workflow on push and PR running `npm ci`, `npm run lint`, `npm test`, `npm run build` across a Node matrix — 16, 18, 20, 22 — and an OS matrix including Windows, which would have caught that failing path test. Then a release workflow triggered on version tags that runs the same checks and publishes with `--provenance` using an npm automation token in secrets. Provenance attaches a signed attestation linking the tarball to the exact commit and workflow that built it. Right now there's no CI at all, which is the biggest gap in the project.
+**Q: How would you make this noticeably faster if speed became a priority?**
+A: I'd measure first rather than guess, since there currently aren't any real speed benchmarks — any answer without measuring is just a hypothesis. But my best guess for the biggest win is that capturing the caller's file and line number on every single call is almost certainly the most expensive step, so making that optional (which it already is) and defaulting it to *off* in performance-critical situations would likely be the single biggest improvement. After that, I'd look at whether color codes are being recalculated on every single log line instead of being calculated once up front — that's the kind of small, repeated waste that adds up fast at high volume.
 
-**Q: What's `npm ci` and why use it in CI?**
-A: It deletes `node_modules` and installs exactly what `package-lock.json` specifies, failing if the lockfile and package.json disagree. `npm install` resolves ranges and may mutate the lockfile. `ci` is faster and reproducible — the same commit gives the same tree every time, which is the whole point of CI.
+**Q: Someone tells you the exact same message is printing twice. How do you figure out why?**
+A: The most likely cause is that the same destination (like the screen) somehow ended up with two delivery mechanisms attached instead of one — which can happen if setup gets called more than once without properly cleaning up the previous configuration first. I'd check how many delivery mechanisms are currently attached to the logger in question; if it's more than expected, that confirms it immediately, and then it's a matter of tracing back to find where setup got called twice.
 
-**Q: Should a library commit its lockfile?**
-A: Yes, for reproducible development and CI, but it's important to understand it doesn't affect consumers — the lockfile isn't published and doesn't constrain their resolution. Only your `dependencies` ranges do. So the lockfile is about *your* team's reproducibility, not your users'.
+### F. Talking honestly about using AI assistance
 
-**Q: How do you keep secrets out of a published package?**
-A: The `files` allowlist is the primary defense — only `dist` ships. Beyond that: `npm pack --dry-run` before every publish, never committing `.npmrc` (npm excludes it from tarballs, but it can leak via git), automation tokens rather than login credentials in CI, and 2FA on the account with auth-and-writes so a stolen token alone can't publish.
+**Q: Did you use AI tools to help build this?**
+A: Yes, extensively — I used AI coding assistants throughout the process. I treated it the way you'd treat working with a fast, capable collaborator: I made the actual design decisions, reviewed every single change, and I can explain and defend any part of this codebase in detail. Good evidence of that is that I can point to real, specific weaknesses I found by actually digging into the code myself afterward — a logic bug in one of the checking functions, a test that only passes depending on which operating system runs it, missing automated testing pipelines — none of which I just assumed were fine.
 
-### E. Design, tradeoffs, and system thinking
-
-**Q: How does this compare to pino?**
-A: Different targets. pino optimizes for throughput — minimal work on the hot path, JSON output, async transports in worker threads — and expects a separate process to make it human-readable. crisplogs does the opposite: it spends effort per line (stack capture, ANSI formatting, box drawing) to produce output a human reads directly in a terminal. For a high-traffic production service, pino is the right answer and I'd say so. For CLIs, local development, scripts, and small services, crisplogs gives you the readable output in one line with no dependencies.
-
-**Q: What would you change if you started over?**
-A: Four things. First, per-handler formatters — right now console and file share one formatter, so you can't have boxes on screen and plain lines in the file. Second, `logger.child({ requestId })` for bound context, which is the most useful feature in real-world logging and the biggest missing piece. Third, make `isEnabledFor` account for handler levels; right now it has a real bug. Fourth, CI from day one, with an OS matrix.
-
-**Q: How would you add request-scoped context — a request ID on every log line?**
-A: `AsyncLocalStorage` from `node:async_hooks`. You store a context object at the start of each request, and `Logger._log` reads from the store and merges it into `extra`. That's how pino and OpenTelemetry propagate context, and it survives across `await` boundaries where a plain variable wouldn't. The alternative is an explicit `logger.child({ requestId })` that returns a logger with bound context — more explicit, less magic, but you have to thread it through your call stack.
-
-**Q: How would you make this faster?**
-A: I'd measure first — there are no benchmarks, so any answer is a hypothesis. But the likely order is: stack capture is the biggest cost, then string concatenation in the formatter, then the synchronous stdout write. Fixes: default `captureCallerInfo` to false in production, do an early level check before building the record (it already does this), precompute the ANSI escape sequences per level once at setup instead of calling `parseColorString` on every format, and buffer writes with a periodic flush instead of one syscall per line. pino's approach — serialize on a worker thread — is the structural fix.
-
-**Q: `parseColorString` runs on every formatted line. Is that a problem?**
-A: Yes, and it's a legitimate criticism. The color strings are fixed at setup time, so parsing them per record is pure waste — it splits, trims, and lowercases the same strings millions of times. The fix is to resolve the whole color map to escape sequences once in the `LogFormatter` constructor and just look them up in `format`. That's probably the single highest-value performance change and it's not hard.
-
-**Q: Someone reports that logs print twice. How do you debug it?**
-A: Almost certainly duplicate handlers. Three likely causes: `setupLogging` called twice with different names on what's meant to be the same logger; a handler added manually on top of the ones `setupLogging` created; or the dual-package hazard, where ESM and CJS copies both have registries. I'd check `logger.handlers.length` first — that immediately distinguishes duplicate-handler from duplicate-logger. `addHandler` is idempotent by instance identity, so it only guards against the same *object* being added twice, not two equivalent handlers.
-
-**Q: How do you handle a user reporting a bug in an old version?**
-A: Reproduce on that version first, then on latest — half of these are already fixed. If it's fixed, point at the changelog entry and the upgrade path. If it's live, write a failing test, fix it, release a patch, and reply on the issue with the version. If it's a breaking-change surprise rather than a bug, that's a documentation failure on my side and the changelog and README need to be clearer.
-
-### F. About having built this with AI assistance
-
-Be straightforward here. Interviewers care far more about whether you understand what you shipped than about how the first draft got written.
-
-**Q: Did you use AI to build this?**
-A: Yes, heavily — I used AI coding assistants throughout. I treated it like working with a fast collaborator: I made the design decisions, reviewed every change, and I can defend any part of the codebase. The refactors are a good example — collapsing four formatter classes into one configurable class, and making invalid colors throw instead of failing silently, were both my calls based on problems I hit while using the library. I can also tell you where it's weak: `isEnabledFor` has a real bug, one test fails on non-Windows platforms, and there's no CI. I found those by going through the code and running the suite, not by assuming it was correct.
-
-**Q: How do you make sure you understand code you didn't type character by character?**
-A: I read it, I test it, and I break it. For this project that meant running every example, writing tests that assert on actual output, and deliberately reasoning about the parts that aren't obvious — the `Error.captureStackTrace` second argument, the ANSI-aware width math, why the registry has to clear handlers on reconfiguration. Anything I couldn't explain to someone else, I dug into until I could. That's also how I found the `isEnabledFor` inconsistency: I was tracing what `logger.level` was actually set to and noticed `setupLogging` always passes DEBUG.
-
-**Q: What did you learn that you couldn't have learned by just reading docs?**
-A: The packaging half. Dual ESM/CJS output and the `exports` conditional map, why `files` as an allowlist beats `.npmignore`, what `prepublishOnly` is for, that a published version number can never be reused, that `^0.3.0` doesn't mean what people assume. And the operational reality that once something is published, other people depend on it — which is what makes the 0.x versioning policy and the changelog matter rather than being ceremony.
+**Q: How do you make sure you genuinely understand code, even if you didn't type every character of it yourself?**
+A: By reading it carefully, testing it deliberately, and trying to break it on purpose. For this project specifically, that meant actually running every example, writing checks that verify real output rather than trusting that it works, and specifically forcing myself to understand every non-obvious piece — like exactly *why* colored text messes up width calculations, or exactly *why* the address book needs to clean up before reconfiguring. If I ever couldn't explain a piece of the code clearly to someone else, I treated that as a sign I needed to dig into it further, not something to skip past.
 
 ---
 
-## 10. Cheat sheet + 60-second walkthrough script
+## 10. Cheat sheet for right before the interview
 
-### Numbers to have ready
+### Numbers worth having memorized
 
 | Fact | Number |
 |---|---|
-| Runtime dependencies | 0 |
-| Source lines / files | ~1,150 / 8 |
-| Tests | 91 (90 passing on Linux/macOS) |
-| Published versions | 6 |
-| Bundle size (CJS / ESM) | 23 KB / 20 KB |
-| Levels | DEBUG 10, INFO 20, WARNING 30, ERROR 40, CRITICAL 50 |
-| Output styles | 4 |
-| Min Node | 16 |
+| Extra libraries needed to run it | 0 |
+| Lines of code / number of files | ~1,150 / 8 |
+| Automated tests | 91 (90 currently passing) |
+| Number of published versions | 6 |
+| Minimum Node.js version supported | 16 |
+| Severity levels | 5 (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
+| Visual output styles | 4 |
 
-### The API in ten lines
+### The whole API, in ten lines
 
 ```ts
 import { setupLogging, getLogger, moduleLogger, resetLogging } from "crisplogs";
 
 const logger = setupLogging({
-  level: "INFO", style: "long-boxed", colored: true, width: 100,
-  datefmt: "%Y-%m-%d %H:%M:%S", extraFormat: "inline",
-  file: "app.log", fileLevel: "WARNING", captureCallerInfo: true, name: "",
+  level: "INFO", style: "long-boxed", colored: true,
+  file: "app.log", fileLevel: "WARNING",
 });
 
 logger.info("message", { key: "value" });
-const log = moduleLogger();      // [filename] tag
-resetLogging();                  // test teardown
+const log = moduleLogger();      // auto-tagged with the current filename
+resetLogging();                  // cleans everything up, useful in tests
 ```
 
-### npm commands worth memorizing
+### npm commands worth having memorized
 
 ```bash
-npm pack --dry-run                 # what will ship
-npm version minor                  # bump + git tag
-npm publish                        # upload (runs prepublishOnly)
-npm publish --tag beta             # publish without moving `latest`
-npm publish --provenance           # signed build attestation from CI
-npm deprecate pkg@"<0.3.0" "msg"   # warn without removing
-npm dist-tag ls pkg                # list tags
-npm view pkg versions              # all published versions
-npm ci                             # reproducible install from lockfile
+npm pack --dry-run        # see exactly what would be shipped, without shipping it
+npm version minor         # bump the version number and tag it
+npm publish               # actually ship it to the world
+npm deprecate pkg@"<0.3.0" "please upgrade"   # warn people off an old version
+npm ci                    # install exactly what the lockfile says, for reliable testing
 ```
 
-### 60-second verbal walkthrough
+### A 60-second spoken summary you can practice out loud
 
-> crisplogs is a zero-dependency Node logging library I published to npm — currently at 0.3.0 with six releases. One call, `setupLogging()`, gives you colored levels, timestamps, the caller's file and line, structured context, and optional file output.
+> crisplogs is a small, dependency-free Node.js library I built and published to npm — it's at version 0.3.0 with six releases so far. One function call gives you colored, organized log output with timestamps, the exact file and line a message came from, and optional structured extra data.
 >
-> Architecturally it's Python's logging model: a Logger decides *when*, a Formatter decides *how it looks*, a Handler owns *where it goes*. That separation is what makes one record fan out to a console at DEBUG and a file at WARNING simultaneously.
+> The design is based on a simple idea borrowed from Python's logging system: deciding *whether* to log something, deciding *how it looks*, and deciding *where it goes* are three completely separate jobs. That separation is what lets one message get shown fully on your screen while only the important parts get saved to a file, at the same time, from one line of code.
 >
-> The two interesting technical bits are capturing the caller's file and line with V8's `Error.captureStackTrace`, using its second argument to cut the stack right at the user's call site, and making all the box layout ANSI-aware — a colored string's `.length` isn't its visible width, so every padding and wrapping calculation strips escape codes first.
+> The two trickiest technical details were figuring out which file and line called the logger — using a caller-ID-style trick built into Node's engine — and making sure colored text doesn't throw off box alignment, since invisible color codes technically count as extra characters that every width calculation has to specifically ignore.
 >
-> On packaging, it ships dual ESM and CommonJS builds through an `exports` map with TypeScript declarations for both, uses a `files` allowlist so only `dist` ships, and gates publishing behind `prepublishOnly` running lint and build.
+> On the packaging side, it ships in both the old and new JavaScript import formats from one shared source, only includes the finished build output in the published package — never the raw source — and refuses to publish at all if the code doesn't pass its checks first.
 >
-> Where it stands honestly: it's the right tool for CLIs and local development. For a high-throughput production service I'd use pino, because it does almost no work on the hot path while this trades throughput for readability. The biggest gaps I'd close next are CI with an OS matrix — one test currently fails on Linux because of Windows path handling — a bug where `isEnabledFor` doesn't account for handler levels, and `logger.child()` for request-scoped context.
+> Being honest about where it stands: it's a great fit for command-line tools and local development, not for a high-traffic production server, where a purpose-built high-speed logging tool would be the better choice. The clearest next steps are setting up automated testing across multiple operating systems, fixing a real bug in one of its checking functions, and adding the ability for a logger to remember shared context automatically instead of it being retyped every time.
